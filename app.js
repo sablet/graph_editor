@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
     generateMermaidCode();
     setupDiagramControls();
     setupFullscreenControls();
+    setupMobileTabs();
     
     // Ctrl+Enterキーでシングルノード追加
     document.getElementById('node-input').addEventListener('keydown', function(e) {
@@ -718,4 +719,41 @@ function fitToFullscreenContainer() {
         container.scrollLeft = 0;
         container.scrollTop = 0;
     }
+}
+
+// モバイルタブの設定
+function setupMobileTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const targetTab = this.dataset.tab;
+            switchMobileTab(targetTab);
+        });
+    });
+    
+    // 初期状態でnodesタブをアクティブにする
+    switchMobileTab('nodes');
+}
+
+function switchMobileTab(activeTab) {
+    // タブボタンの状態を更新
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+        if (button.dataset.tab === activeTab) {
+            button.classList.add('active');
+        } else {
+            button.classList.remove('active');
+        }
+    });
+    
+    // パネルの表示状態を更新
+    const panels = document.querySelectorAll('[data-panel]');
+    panels.forEach(panel => {
+        if (panel.dataset.panel === activeTab) {
+            panel.classList.add('active');
+        } else {
+            panel.classList.remove('active');
+        }
+    });
 }
