@@ -51,6 +51,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// ノードテキストの加工処理（共通関数）
+function processNodeText(text) {
+    // 文頭の"* "を除去
+    if (text.startsWith('* ')) {
+        text = text.substring(2);
+    }
+    
+    // 今後、他の加工処理もここに追加可能
+    // 例: 特殊文字のエスケープ、文字数制限など
+    
+    return text;
+}
+
 // 単一ノード追加（最初の行のみ使用）
 function addSingleNode() {
     const nodeInput = document.getElementById('node-input');
@@ -61,20 +74,21 @@ function addSingleNode() {
         return;
     }
     
-    // 最初の行のみを取得
+    // 最初の行のみを取得し、共通関数で加工
     const firstLine = inputText.split('\n')[0].trim();
+    const cleanedFirstLine = processNodeText(firstLine);
     
-    if (firstLine === '') {
+    if (cleanedFirstLine === '') {
         alert('有効なノード名を入力してください');
         return;
     }
     
-    if (nodes.includes(firstLine)) {
+    if (nodes.includes(cleanedFirstLine)) {
         alert('同じ名前のノードが既に存在します');
         return;
     }
     
-    nodes.push(firstLine);
+    nodes.push(cleanedFirstLine);
     nodeInput.value = '';
     
     renderNodes();
@@ -91,9 +105,10 @@ function addBulkNodes() {
         return;
     }
     
-    // 行ごとに分割し、空行を除去
+    // 行ごとに分割し、空行を除去、共通関数で加工
     const newNodes = inputText.split('\n')
         .map(line => line.trim())
+        .map(line => processNodeText(line))
         .filter(line => line !== '');
     
     if (newNodes.length === 0) {
