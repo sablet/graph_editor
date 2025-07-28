@@ -31,11 +31,16 @@
         
         .main-content {
             display: grid;
-            grid-template-columns: 500px 1fr;
+            grid-template-columns: 350px 350px 1fr;
             min-height: 600px;
         }
         
-        .editor-panel {
+        .nodes-panel {
+            padding: 20px;
+            border-right: 1px solid #e5e7eb;
+        }
+        
+        .relations-panel {
             padding: 20px;
             border-right: 1px solid #e5e7eb;
         }
@@ -366,14 +371,32 @@
     <div class="container">
         
         <div class="main-content">
-            <div class="editor-panel">
+            <div class="nodes-panel">
+                <div class="section">
+                    <h3>ノード追加</h3>
+                    <div class="relation-form">
+                        <div class="form-row">
+                            <div class="form-field">
+                                <label for="node-input">ノード名（複数行可、1行1ノード）</label>
+                                <textarea id="node-input" placeholder="ノード名を入力&#10;&#10;単一ノード例：&#10;新しいノード&#10;&#10;複数ノード例：&#10;ノード1&#10;ノード2&#10;ノード3" rows="5" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px; resize: vertical; width: 100%; box-sizing: border-box;"></textarea>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <button onclick="addSingleNode()" style="flex: 1;">ノード追加</button>
+                                <button onclick="addBulkNodes()" style="flex: 1; background: #059669;">まとめて追加</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="section">
                     <h3>ノード一覧</h3>
                     <div class="node-list" id="node-list">
                         <!-- ノードがここに表示される -->
                     </div>
                 </div>
-                
+            </div>
+            
+            <div class="relations-panel">
                 <div class="section">
                     <h3>リレーション追加</h3>
                     <div class="relation-form">

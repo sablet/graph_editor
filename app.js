@@ -41,17 +41,168 @@ document.addEventListener('DOMContentLoaded', function() {
     generateMermaidCode();
     setupDiagramControls();
     setupFullscreenControls();
+    
+    // Ctrl+Enterキーでシングルノード追加
+    document.getElementById('node-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            addSingleNode();
+        }
+    });
 });
+
+// 単一ノード追加（最初の行のみ使用）
+function addSingleNode() {
+    const nodeInput = document.getElementById('node-input');
+    const inputText = nodeInput.value.trim();
+    
+    if (inputText === '') {
+        alert('ノード名を入力してください');
+        return;
+    }
+    
+    // 最初の行のみを取得
+    const firstLine = inputText.split('\n')[0].trim();
+    
+    if (firstLine === '') {
+        alert('有効なノード名を入力してください');
+        return;
+    }
+    
+    if (nodes.includes(firstLine)) {
+        alert('同じ名前のノードが既に存在します');
+        return;
+    }
+    
+    nodes.push(firstLine);
+    nodeInput.value = '';
+    
+    renderNodes();
+    renderSelects();
+}
+
+// バルクノード追加（複数行対応・確認ダイアログ付き）
+function addBulkNodes() {
+    const nodeInput = document.getElementById('node-input');
+    const inputText = nodeInput.value.trim();
+    
+    if (inputText === '') {
+        alert('ノード名を入力してください');
+        return;
+    }
+    
+    // 行ごとに分割し、空行を除去
+    const newNodes = inputText.split('\n')
+        .map(line => line.trim())
+        .filter(line => line !== '');
+    
+    if (newNodes.length === 0) {
+        alert('有効なノード名が見つかりません');
+        return;
+    }
+    
+    // 重複チェック
+    const duplicates = [];
+    const validNodes = [];
+    
+    newNodes.forEach(nodeText => {
+        if (nodes.includes(nodeText)) {
+            duplicates.push(nodeText);
+        } else if (validNodes.includes(nodeText)) {
+            // 入力内での重複もチェック
+            duplicates.push(nodeText + ' (入力内重複)');
+        } else {
+            validNodes.push(nodeText);
+        }
+    });
+    
+    // 追加予定のノードを確認
+    let confirmMessage = `以下の${validNodes.length}個のノードを追加しますか？\n\n`;
+    confirmMessage += validNodes.map((node, index) => `${index + 1}. ${node}`).join('\n');
+    
+    if (duplicates.length > 0) {
+        confirmMessage += `\n\n※ 以下は重複のため追加されません：\n${duplicates.join('\n')}`;
+    }
+    
+    if (validNodes.length === 0) {
+        alert('追加できる新しいノードがありません。\n\n重複したノード：\n' + duplicates.join('\n'));
+        return;
+    }
+    
+    // 確認ダイアログを表示
+    if (confirm(confirmMessage)) {
+        nodes.push(...validNodes);
+        nodeInput.value = '';
+        
+        renderNodes();
+        renderSelects();
+        
+        let resultMessage = `${validNodes.length}個のノードを追加しました。`;
+        if (duplicates.length > 0) {
+            resultMessage += `\n\n${duplicates.length}個のノードは重複のため追加されませんでした。`;
+        }
+        alert(resultMessage);
+    }
+}
+
+// ノード削除
+function deleteNode(index) {
+    if (confirm(`ノード「${nodes[index]}」を削除しますか？関連するリレーションも削除されます。`)) {
+        // 関連するリレーションを削除
+        relations = relations.filter(rel => rel.from !== index && rel.to !== index);
+        
+        // インデックスを調整
+        relations = relations.map(rel => ({
+            from: rel.from > index ? rel.from - 1 : rel.from,
+            to: rel.to > index ? rel.to - 1 : rel.to
+        }));
+        
+        // ノードを削除
+        nodes.splice(index, 1);
+        
+        renderNodes();
+        renderSelects();
+        renderRelations();
+        generateMermaidCode();
+    }
+}
 
 // ノード一覧を表示
 function renderNodes() {
     const nodeList = document.getElementById('node-list');
     nodeList.innerHTML = '';
     
+    if (nodes.length === 0) {
+        const emptyMessage = document.createElement('div');
+        emptyMessage.style.color = '#6b7280';
+        emptyMessage.style.textAlign = 'center';
+        emptyMessage.style.padding = '20px';
+        emptyMessage.textContent = 'ノードがありません';
+        nodeList.appendChild(emptyMessage);
+        return;
+    }
+    
     nodes.forEach((node, index) => {
         const nodeElement = document.createElement('div');
         nodeElement.className = 'node-item';
-        nodeElement.textContent = `${index + 1}. ${node}`;
+        nodeElement.style.display = 'flex';
+        nodeElement.style.justifyContent = 'space-between';
+        nodeElement.style.alignItems = 'center';
+        
+        const nodeText = document.createElement('span');
+        nodeText.textContent = `${index + 1}. ${node}`;
+        nodeText.style.flex = '1';
+        nodeText.style.marginRight = '10px';
+        
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'btn-danger';
+        deleteButton.style.fontSize = '11px';
+        deleteButton.style.padding = '4px 8px';
+        deleteButton.textContent = '削除';
+        deleteButton.onclick = () => deleteNode(index);
+        
+        nodeElement.appendChild(nodeText);
+        nodeElement.appendChild(deleteButton);
         nodeList.appendChild(nodeElement);
     });
 }
