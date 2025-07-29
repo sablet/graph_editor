@@ -16,6 +16,7 @@ const initialNodes = [
 // アプリケーションの状態
 let nodes = [...initialNodes];
 let relations = [];
+let nodeHierarchy = []; // 親子関係を保存 {children: [childIndex1, childIndex2], parent: parentIndex}
 let currentZoom = 1;
 let isDragging = false;
 let lastMousePos = { x: 0, y: 0 };
@@ -37,7 +38,10 @@ mermaid.initialize({
 document.addEventListener('DOMContentLoaded', function() {
     renderNodes();
     renderSelects();
+    renderHierarchySelects();
     renderRelations();
+    renderHierarchy();
+    updateUILabels();
     generateMermaidCode();
     setupDiagramControls();
     setupFullscreenControls();
@@ -152,6 +156,7 @@ function addBulkNodes() {
         
         renderNodes();
         renderSelects();
+        renderHierarchySelects();
         
         let resultMessage = `${validNodes.length}個のノードを追加しました。`;
         if (duplicates.length > 0) {
@@ -163,7 +168,7 @@ function addBulkNodes() {
 
 // ノード削除
 function deleteNode(index) {
-    if (confirm(`ノード「${nodes[index]}」を削除しますか？関連するリレーションも削除されます。`)) {
+    if (confirm(`ノード「${nodes[index]}」を削除しますか？関連するリレーションと階層関係も削除されます。`)) {
         // 関連するリレーションを削除
         relations = relations.filter(rel => rel.from !== index && rel.to !== index);
         
@@ -172,18 +177,31 @@ function deleteNode(index) {
             from: rel.from > index ? rel.from - 1 : rel.from,
             to: rel.to > index ? rel.to - 1 : rel.to
         }));
+
+        // 関連する階層関係を削除
+        nodeHierarchy = nodeHierarchy.filter(hier => 
+            hier.parent !== index && !hier.children.includes(index)
+        );
+
+        // 階層関係のインデックスを調整
+        nodeHierarchy = nodeHierarchy.map(hier => ({
+            children: hier.children.map(child => child > index ? child - 1 : child).filter(child => child !== index),
+            parent: hier.parent > index ? hier.parent - 1 : hier.parent
+        })).filter(hier => hier.children.length > 0);
         
         // ノードを削除
         nodes.splice(index, 1);
         
         renderNodes();
         renderSelects();
+        renderHierarchySelects();
         renderRelations();
+        renderHierarchy();
         generateMermaidCode();
     }
 }
 
-// ノード一覧を表示
+// ノード一覧を表示（階層対応・折りたたみ）
 function renderNodes() {
     const nodeList = document.getElementById('node-list');
     nodeList.innerHTML = '';
@@ -198,86 +216,603 @@ function renderNodes() {
         return;
     }
     
-    nodes.forEach((node, index) => {
-        const nodeElement = document.createElement('div');
-        nodeElement.className = 'node-item';
-        nodeElement.style.display = 'flex';
-        nodeElement.style.justifyContent = 'space-between';
-        nodeElement.style.alignItems = 'center';
-        
-        const nodeText = document.createElement('span');
-        nodeText.textContent = `${index + 1}. ${node}`;
-        nodeText.style.flex = '1';
-        nodeText.style.marginRight = '10px';
-        
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'btn-danger';
-        deleteButton.style.fontSize = '11px';
-        deleteButton.style.padding = '4px 8px';
-        deleteButton.textContent = '削除';
-        deleteButton.onclick = () => deleteNode(index);
-        
-        nodeElement.appendChild(nodeText);
-        nodeElement.appendChild(deleteButton);
-        nodeList.appendChild(nodeElement);
+    // すべての子ノードのインデックスを取得
+    const childIndices = new Set();
+    nodeHierarchy.forEach(hierarchy => {
+        hierarchy.children.forEach(childIndex => {
+            childIndices.add(childIndex);
+        });
     });
+    
+    // 親ノードと独立ノードを順番に表示
+    const parentAndStandaloneNodes = [];
+    for (let i = 0; i < nodes.length; i++) {
+        if (!childIndices.has(i)) {
+            parentAndStandaloneNodes.push(i);
+        }
+    }
+    
+    parentAndStandaloneNodes.forEach(index => {
+        renderNodeItemRecursive(index, 0);
+    });
+}
+
+// 再帰的にノードアイテムを描画（多階層対応）
+function renderNodeItemRecursive(nodeIndex, depth = 0, parentIndex = null) {
+    const node = nodes[nodeIndex];
+    const isChild = depth > 0;
+    
+    renderNodeItem(node, nodeIndex, isChild, parentIndex, depth);
+    
+    // このノードが親ノードの場合は子ノードも再帰的に表示
+    if (isParentNode(nodeIndex)) {
+        const childNodes = getChildNodes(nodeIndex);
+        childNodes.forEach(childIndex => {
+            renderNodeItemRecursive(childIndex, depth + 1, nodeIndex);
+        });
+    }
+}
+
+// 個別ノードアイテムを描画（多階層対応）
+function renderNodeItem(node, index, isChild = false, parentIndex = null, depth = 0) {
+    const nodeList = document.getElementById('node-list');
+    const nodeElement = document.createElement('div');
+    
+    if (isChild) {
+        nodeElement.className = 'node-item child-node';
+        nodeElement.dataset.parentIndex = parentIndex;
+        nodeElement.dataset.depth = depth;
+        // 階層の深さに応じてインデントを調整
+        const indentWidth = 20 * depth;
+        nodeElement.style.marginLeft = `${indentWidth}px`;
+    } else {
+        nodeElement.className = 'node-item';
+        if (isParentNode(index)) {
+            nodeElement.classList.add('parent-node');
+        }
+    }
+    
+    nodeElement.style.display = 'flex';
+    nodeElement.style.justifyContent = 'space-between';
+    nodeElement.style.alignItems = 'center';
+    
+    const nodeTextContainer = document.createElement('div');
+    nodeTextContainer.style.flex = '1';
+    nodeTextContainer.style.display = 'flex';
+    nodeTextContainer.style.alignItems = 'center';
+    
+    // アイコン用のスペースを確保（親ノードでなくても同じ幅を保持）
+    const iconContainer = document.createElement('span');
+    iconContainer.style.width = '15px';
+    iconContainer.style.display = 'inline-block';
+    iconContainer.style.textAlign = 'left';
+    
+    // 親ノードの場合は展開/折りたたみアイコンを追加
+    if (isParentNode(index)) {
+        const expandIcon = document.createElement('span');
+        expandIcon.className = 'expand-icon';
+        expandIcon.textContent = '▶';
+        expandIcon.dataset.parentIndex = index;
+        expandIcon.onclick = (e) => {
+            e.stopPropagation();
+            toggleChildNodes(index, expandIcon);
+        };
+        iconContainer.appendChild(expandIcon);
+    }
+    
+    const nodeText = document.createElement('span');
+    nodeText.textContent = `${getNodeDisplayNumber(index)}. ${node}`;
+    nodeText.style.marginRight = '10px';
+    
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'btn-danger';
+    deleteButton.style.fontSize = '11px';
+    deleteButton.style.padding = '4px 8px';
+    deleteButton.textContent = '削除';
+    deleteButton.onclick = () => deleteNode(index);
+    
+    nodeTextContainer.appendChild(iconContainer);
+    nodeTextContainer.appendChild(nodeText);
+    nodeElement.appendChild(nodeTextContainer);
+    nodeElement.appendChild(deleteButton);
+    nodeList.appendChild(nodeElement);
+    
+    // 親ノードがクリックされた時の展開/折りたたみ
+    if (isParentNode(index)) {
+        nodeElement.onclick = (e) => {
+            if (e.target !== deleteButton && !e.target.classList.contains('expand-icon')) {
+                const expandIcon = nodeElement.querySelector('.expand-icon');
+                toggleChildNodes(index, expandIcon);
+            }
+        };
+    }
+}
+
+// 子ノードの表示/非表示を切り替え（多階層対応）
+function toggleChildNodes(parentIndex, expandIcon) {
+    const childNodes = document.querySelectorAll(`[data-parent-index="${parentIndex}"]`);
+    
+    if (!expandIcon) return;
+    
+    const isExpanded = expandIcon.classList.contains('expanded');
+    
+    childNodes.forEach(childNode => {
+        if (isExpanded) {
+            // 折りたたみ：直接の子ノードとその子孫をすべて非表示
+            hideNodeAndDescendants(childNode);
+            expandIcon.classList.remove('expanded');
+            expandIcon.textContent = '▶';
+        } else {
+            // 展開：直接の子ノードのみ表示
+            childNode.classList.add('expanded');
+            expandIcon.classList.add('expanded');
+            expandIcon.textContent = '▼';
+        }
+    });
+}
+
+// ノードとその子孫を再帰的に非表示にする
+function hideNodeAndDescendants(nodeElement) {
+    nodeElement.classList.remove('expanded');
+    
+    // この要素のノードインデックスを取得
+    const deleteButton = nodeElement.querySelector('.btn-danger');
+    const nodeIndex = parseInt(deleteButton.onclick.toString().match(/deleteNode\((\d+)\)/)?.[1]);
+    
+    if (nodeIndex !== undefined) {
+        // このノードの子ノードもすべて非表示にする
+        const descendantNodes = document.querySelectorAll(`[data-parent-index="${nodeIndex}"]`);
+        descendantNodes.forEach(descendant => {
+            hideNodeAndDescendants(descendant);
+        });
+        
+        // 展開アイコンもリセット
+        const expandIcon = nodeElement.querySelector('.expand-icon');
+        if (expandIcon) {
+            expandIcon.classList.remove('expanded');
+            expandIcon.textContent = '▶';
+        }
+    }
 }
 
 // セレクトボックスとチェックボックスを更新
 function renderSelects() {
-    renderFromCheckboxes();
-    renderToSelect();
+    renderUnifiedMultiCheckboxes();
+    renderUnifiedSingleSelect();
 }
 
-// Fromチェックボックスを描画
-function renderFromCheckboxes() {
-    const checkboxContainer = document.getElementById('from-checkboxes');
+// 階層選択セレクトボックスを更新（統合UI用）
+function renderHierarchySelects() {
+    renderUnifiedMultiCheckboxes();
+    renderUnifiedSingleSelect();
+}
+
+// 統合UI用：複数選択チェックボックスを描画（多階層対応）
+function renderUnifiedMultiCheckboxes() {
+    const checkboxContainer = document.getElementById('multi-checkboxes');
     checkboxContainer.innerHTML = '';
     
-    nodes.forEach((node, index) => {
-        const checkboxItem = document.createElement('div');
-        checkboxItem.className = 'checkbox-item';
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `from-checkbox-${index}`;
-        checkbox.value = index;
-        
-        const label = document.createElement('label');
-        label.htmlFor = `from-checkbox-${index}`;
-        label.textContent = `${index + 1}. ${node}`;
-        
-        checkboxItem.appendChild(checkbox);
-        checkboxItem.appendChild(label);
-        checkboxContainer.appendChild(checkboxItem);
+    // すべての子ノードのインデックスを取得
+    const childIndices = new Set();
+    nodeHierarchy.forEach(hierarchy => {
+        hierarchy.children.forEach(childIndex => {
+            childIndices.add(childIndex);
+        });
+    });
+    
+    // 親ノードと独立ノードを順番に表示
+    const parentAndStandaloneNodes = [];
+    for (let i = 0; i < nodes.length; i++) {
+        if (!childIndices.has(i)) {
+            parentAndStandaloneNodes.push(i);
+        }
+    }
+    
+    parentAndStandaloneNodes.forEach(index => {
+        renderUnifiedCheckboxItemRecursive(index, checkboxContainer, 0);
     });
 }
 
-// Toセレクトボックスを描画
-function renderToSelect() {
-    const toSelect = document.getElementById('to-select');
-    const toValue = toSelect.value;
+// 再帰的にチェックボックスアイテムを描画
+function renderUnifiedCheckboxItemRecursive(nodeIndex, container, depth = 0, parentIndex = null) {
+    const node = nodes[nodeIndex];
+    const isChild = depth > 0;
     
-    toSelect.innerHTML = '<option value="">To を選択</option>';
+    renderUnifiedCheckboxItem(node, nodeIndex, isChild, container, parentIndex, depth);
     
-    nodes.forEach((node, index) => {
-        const toOption = document.createElement('option');
-        toOption.value = index;
-        toOption.textContent = `${index + 1}. ${node}`;
-        toSelect.appendChild(toOption);
-    });
-    
-    toSelect.value = toValue;
+    // この ノードが親ノードの場合は子ノードも再帰的に表示
+    if (isParentNode(nodeIndex)) {
+        const childNodes = getChildNodes(nodeIndex);
+        childNodes.forEach(childIndex => {
+            renderUnifiedCheckboxItemRecursive(childIndex, container, depth + 1, nodeIndex);
+        });
+    }
 }
 
-// リレーション追加
+// 統合UI用：個別チェックボックスアイテムを描画（多階層対応）
+function renderUnifiedCheckboxItem(node, index, isChild = false, container, parentIndex = null, depth = 0) {
+    const checkboxItem = document.createElement('div');
+    checkboxItem.className = 'checkbox-item';
+    checkboxItem.style.display = 'flex';
+    checkboxItem.style.alignItems = 'center';
+    
+    if (isChild) {
+        // 階層の深さに応じてインデントを調整
+        const indentWidth = 20 * depth;
+        checkboxItem.style.marginLeft = `${indentWidth}px`;
+        checkboxItem.style.borderLeft = '3px solid #059669';
+        checkboxItem.style.paddingLeft = '8px';
+        checkboxItem.style.backgroundColor = '#f0fdf4';
+        checkboxItem.classList.add('child-checkbox');
+        checkboxItem.dataset.parentIndex = parentIndex;
+        checkboxItem.dataset.depth = depth;
+        checkboxItem.style.display = 'none'; // デフォルトで非表示
+    }
+    
+    // アイコン用のスペースを確保（親ノードでなくても同じ幅を保持）
+    const iconContainer = document.createElement('span');
+    iconContainer.style.width = '15px'; // アイコン分の固定幅
+    iconContainer.style.display = 'inline-block';
+    iconContainer.style.textAlign = 'left';
+    
+    if (isParentNode(index)) {
+        checkboxItem.classList.add('parent-checkbox');
+        checkboxItem.style.cursor = 'pointer';
+        
+        // 展開/折りたたみアイコンを追加
+        const expandIcon = document.createElement('span');
+        expandIcon.className = 'expand-icon-checkbox';
+        expandIcon.textContent = '▶';
+        expandIcon.style.fontSize = '10px';
+        expandIcon.style.color = '#059669';
+        expandIcon.style.cursor = 'pointer';
+        expandIcon.dataset.nodeIndex = index; // ノードインデックスを保存
+        expandIcon.onclick = (e) => {
+            e.stopPropagation();
+            toggleChildCheckboxes(index, expandIcon);
+        };
+        iconContainer.appendChild(expandIcon);
+    }
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `multi-checkbox-${index}`;
+    checkbox.value = index;
+    checkbox.style.marginRight = '8px';
+    
+    const label = document.createElement('label');
+    label.htmlFor = `multi-checkbox-${index}`;
+    label.textContent = `${getNodeDisplayNumber(index)}. ${node}`;
+    label.style.cursor = 'pointer';
+    label.style.flex = '1';
+    
+    checkboxItem.appendChild(iconContainer);
+    checkboxItem.appendChild(checkbox);
+    checkboxItem.appendChild(label);
+    container.appendChild(checkboxItem);
+    
+    // 親ノードクリック時の展開/折りたたみ
+    if (isParentNode(index)) {
+        checkboxItem.onclick = (e) => {
+            if (e.target !== checkbox && e.target !== label && !e.target.classList.contains('expand-icon-checkbox')) {
+                const expandIcon = checkboxItem.querySelector('.expand-icon-checkbox');
+                toggleChildCheckboxes(index, expandIcon);
+            }
+        };
+    }
+}
+
+// 子チェックボックスの表示/非表示を切り替え（多階層対応）
+function toggleChildCheckboxes(parentIndex, expandIcon) {
+    const childCheckboxes = document.querySelectorAll(`[data-parent-index="${parentIndex}"].child-checkbox`);
+    
+    if (!expandIcon) return;
+    
+    const isExpanded = expandIcon.classList.contains('expanded');
+    
+    childCheckboxes.forEach(childCheckbox => {
+        if (isExpanded) {
+            // 折りたたみ：直接の子ノードとその子孫をすべて非表示
+            hideCheckboxAndDescendants(childCheckbox);
+            expandIcon.classList.remove('expanded');
+            expandIcon.textContent = '▶';
+        } else {
+            // 展開：直接の子ノードのみ表示（孫は親の展開状態による）
+            childCheckbox.style.display = 'flex';
+            expandIcon.classList.add('expanded');
+            expandIcon.textContent = '▼';
+        }
+    });
+}
+
+// チェックボックスとその子孫を再帰的に非表示にする
+function hideCheckboxAndDescendants(checkboxElement) {
+    checkboxElement.style.display = 'none';
+    
+    // この要素のノードインデックスを取得
+    const nodeIndex = parseInt(checkboxElement.querySelector('input').value);
+    
+    // このノードの子ノードもすべて非表示にする
+    const descendantCheckboxes = document.querySelectorAll(`[data-parent-index="${nodeIndex}"].child-checkbox`);
+    descendantCheckboxes.forEach(descendant => {
+        hideCheckboxAndDescendants(descendant);
+    });
+    
+    // 展開アイコンもリセット
+    const expandIcon = checkboxElement.querySelector('.expand-icon-checkbox');
+    if (expandIcon) {
+        expandIcon.classList.remove('expanded');
+        expandIcon.textContent = '▶';
+    }
+}
+
+// 統合UI用：単一選択セレクトボックスを描画
+function renderUnifiedSingleSelect() {
+    const singleSelect = document.getElementById('single-select');
+    const singleValue = singleSelect.value;
+    
+    singleSelect.innerHTML = '<option value="">選択してください</option>';
+    
+    nodes.forEach((node, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = `${getNodeDisplayNumber(index)}. ${node}`;
+        singleSelect.appendChild(option);
+    });
+    
+    singleSelect.value = singleValue;
+}
+
+
+// 階層関係追加（統合UI対応）
+function addHierarchy() {
+    const singleSelect = document.getElementById('single-select');
+    const parentIndex = singleSelect.value;
+    
+    // 選択された子ノードチェックボックスを取得
+    const selectedChildren = [];
+    const checkboxes = document.querySelectorAll('#multi-checkboxes input[type="checkbox"]:checked');
+    checkboxes.forEach(checkbox => {
+        selectedChildren.push(parseInt(checkbox.value));
+    });
+    
+    if (selectedChildren.length === 0 || parentIndex === '') {
+        alert('子ノードと親ノードの両方を選択してください');
+        return;
+    }
+    
+    // 親に子を含める選択をチェック
+    if (selectedChildren.includes(parseInt(parentIndex))) {
+        alert('親ノードを子ノードに含めることはできません');
+        return;
+    }
+    
+    // 既存の階層関係をチェック（同じ親の場合は子を追加）
+    const existingHierarchyIndex = nodeHierarchy.findIndex(hier => hier.parent === parseInt(parentIndex));
+    
+    if (existingHierarchyIndex >= 0) {
+        // 既存の親の子リストに追加
+        const existingChildren = nodeHierarchy[existingHierarchyIndex].children;
+        const newChildren = selectedChildren.filter(child => !existingChildren.includes(child));
+        
+        if (newChildren.length === 0) {
+            alert('選択された子ノードは既に同じ親に設定されています');
+            return;
+        }
+        
+        nodeHierarchy[existingHierarchyIndex].children = [...existingChildren, ...newChildren];
+    } else {
+        // 新しい階層関係を追加
+        nodeHierarchy.push({
+            children: selectedChildren,
+            parent: parseInt(parentIndex)
+        });
+    }
+    
+    // UIを更新
+    renderHierarchy();
+    regenerateNodeNumbers();
+    updateUILabels(); // ラベルを更新
+    generateMermaidCode();
+    
+    // フォームをリセット
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    singleSelect.value = '';
+}
+
+// UIラベルを更新（階層関係の有無に応じて）
+function updateUILabels() {
+    const multiLabel = document.getElementById('multi-select-label');
+    const singleLabel = document.getElementById('single-select-label');
+    
+    if (nodeHierarchy.length > 0) {
+        // 階層関係がある場合は親子関係を明確に表示
+        multiLabel.textContent = '子ノード - 複数選択可';
+        singleLabel.textContent = '親ノード';
+    } else {
+        // 階層関係がない場合は従来通りの表示
+        multiLabel.textContent = 'From (開始ノード) - 複数選択可';
+        singleLabel.textContent = 'To (終了ノード)';
+    }
+}
+
+// ノード表示番号を取得（階層対応・番号調整）
+function getNodeDisplayNumber(nodeIndex) {
+    // 該当ノードが子ノードかチェック
+    for (let i = 0; i < nodeHierarchy.length; i++) {
+        const hierarchy = nodeHierarchy[i];
+        const childPosition = hierarchy.children.indexOf(nodeIndex);
+        if (childPosition >= 0) {
+            const parentNumber = getNodeDisplayNumber(hierarchy.parent);
+            return `${parentNumber}-${childPosition + 1}`;
+        }
+    }
+    
+    // 親ノードまたは階層に属さないノードの場合は調整された番号を返す
+    return getAdjustedNodeNumber(nodeIndex);
+}
+
+// 子ノードを除外した調整済み番号を取得
+function getAdjustedNodeNumber(nodeIndex) {
+    // すべての子ノードのインデックスを取得
+    const childIndices = new Set();
+    nodeHierarchy.forEach(hierarchy => {
+        hierarchy.children.forEach(childIndex => {
+            childIndices.add(childIndex);
+        });
+    });
+    
+    // 子ノードを除外してソート
+    const parentAndStandaloneNodes = [];
+    for (let i = 0; i < nodes.length; i++) {
+        if (!childIndices.has(i)) {
+            parentAndStandaloneNodes.push(i);
+        }
+    }
+    parentAndStandaloneNodes.sort((a, b) => a - b);
+    
+    // 調整済み番号を返す
+    const position = parentAndStandaloneNodes.indexOf(nodeIndex);
+    return position >= 0 ? position + 1 : nodeIndex + 1;
+}
+
+// ノードが子ノードかどうかを判定
+function isChildNode(nodeIndex) {
+    return nodeHierarchy.some(hierarchy => hierarchy.children.includes(nodeIndex));
+}
+
+// ノードが親ノードかどうかを判定
+function isParentNode(nodeIndex) {
+    return nodeHierarchy.some(hierarchy => hierarchy.parent === nodeIndex);
+}
+
+// ノードの子ノードを取得
+function getChildNodes(nodeIndex) {
+    const hierarchy = nodeHierarchy.find(h => h.parent === nodeIndex);
+    return hierarchy ? hierarchy.children : [];
+}
+
+// ノード番号を再生成
+function regenerateNodeNumbers() {
+    renderNodes();
+    renderSelects();
+    renderHierarchySelects();
+}
+
+// 階層関係一覧を表示
+function renderHierarchy() {
+    const hierarchyList = document.getElementById('hierarchy-list');
+    hierarchyList.innerHTML = '';
+    
+    if (nodeHierarchy.length === 0) {
+        const emptyMessage = document.createElement('div');
+        emptyMessage.style.color = '#6b7280';
+        emptyMessage.style.textAlign = 'center';
+        emptyMessage.style.padding = '20px';
+        emptyMessage.textContent = '階層関係がありません';
+        hierarchyList.appendChild(emptyMessage);
+        return;
+    }
+    
+    nodeHierarchy.forEach((hierarchy, hierarchyIndex) => {
+        const hierarchyElement = document.createElement('div');
+        hierarchyElement.className = 'relation-item';
+        hierarchyElement.style.flexDirection = 'column';
+        hierarchyElement.style.alignItems = 'flex-start';
+        
+        const hierarchyText = document.createElement('div');
+        hierarchyText.style.width = '100%';
+        hierarchyText.style.marginBottom = '10px';
+        
+        // 子ノード部分（複数の場合はリスト表示）
+        const childrenList = hierarchy.children.map(childIndex => 
+            `<strong>${getNodeDisplayNumber(childIndex)}.</strong> ${nodes[childIndex]}`
+        ).join('<br>');
+        
+        hierarchyText.innerHTML = `
+            <div style="margin-bottom: 8px;">
+                ${childrenList}
+            </div>
+            <div style="text-align: center; margin: 8px 0; color: #059669; font-weight: bold;">
+                ↑ 子ノード
+            </div>
+            <div style="background: #f0fdf4; padding: 8px; border-radius: 4px; border-left: 3px solid #059669;">
+                <strong>${getNodeDisplayNumber(hierarchy.parent)}.</strong> ${nodes[hierarchy.parent]} (親)
+            </div>
+        `;
+        
+        // 削除ボタンコンテナ
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '5px';
+        buttonContainer.style.flexWrap = 'wrap';
+        buttonContainer.style.marginTop = '10px';
+        
+        // 個別削除ボタン
+        hierarchy.children.forEach(childIndex => {
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'btn-danger';
+            deleteButton.style.fontSize = '11px';
+            deleteButton.style.padding = '4px 8px';
+            deleteButton.textContent = `${getNodeDisplayNumber(childIndex)}→${getNodeDisplayNumber(hierarchy.parent)} 削除`;
+            deleteButton.onclick = () => deleteHierarchyChild(hierarchyIndex, childIndex);
+            buttonContainer.appendChild(deleteButton);
+        });
+        
+        // 全て削除ボタン（複数子がある場合のみ）
+        if (hierarchy.children.length > 1) {
+            const deleteAllButton = document.createElement('button');
+            deleteAllButton.className = 'btn-danger';
+            deleteAllButton.style.fontSize = '11px';
+            deleteAllButton.style.padding = '4px 8px';
+            deleteAllButton.style.backgroundColor = '#dc2626';
+            deleteAllButton.textContent = `全て削除 (→${getNodeDisplayNumber(hierarchy.parent)})`;
+            deleteAllButton.onclick = () => deleteHierarchy(hierarchyIndex);
+            buttonContainer.appendChild(deleteAllButton);
+        }
+        
+        hierarchyElement.appendChild(hierarchyText);
+        hierarchyElement.appendChild(buttonContainer);
+        hierarchyList.appendChild(hierarchyElement);
+    });
+}
+
+// 階層関係から特定の子を削除
+function deleteHierarchyChild(hierarchyIndex, childIndex) {
+    const hierarchy = nodeHierarchy[hierarchyIndex];
+    hierarchy.children = hierarchy.children.filter(child => child !== childIndex);
+    
+    // 子が一つもなくなった場合は階層自体を削除
+    if (hierarchy.children.length === 0) {
+        nodeHierarchy.splice(hierarchyIndex, 1);
+    }
+    
+    renderHierarchy();
+    regenerateNodeNumbers();
+    updateUILabels();
+    generateMermaidCode();
+}
+
+// 階層関係を削除
+function deleteHierarchy(hierarchyIndex) {
+    nodeHierarchy.splice(hierarchyIndex, 1);
+    renderHierarchy();
+    regenerateNodeNumbers();
+    updateUILabels();
+    generateMermaidCode();
+}
+
+
+// リレーション追加（統合UI対応）
 function addRelation() {
-    const toSelect = document.getElementById('to-select');
-    const toIndex = toSelect.value;
+    const singleSelect = document.getElementById('single-select');
+    const toIndex = singleSelect.value;
     
     // 選択されたFromチェックボックスを取得
     const selectedFroms = [];
-    const checkboxes = document.querySelectorAll('#from-checkboxes input[type="checkbox"]:checked');
+    const checkboxes = document.querySelectorAll('#multi-checkboxes input[type="checkbox"]:checked');
     checkboxes.forEach(checkbox => {
         selectedFroms.push(parseInt(checkbox.value));
     });
@@ -323,7 +858,7 @@ function addRelation() {
     checkboxes.forEach(checkbox => {
         checkbox.checked = false;
     });
-    toSelect.value = '';
+    singleSelect.value = '';
 }
 
 // リレーション一覧を表示（複数から一つへの形式でグループ化）
@@ -367,7 +902,7 @@ function renderRelations() {
         
         // From部分（複数の場合はリスト表示）
         const fromList = fromNodes.map(rel => 
-            `<strong>${rel.from + 1}.</strong> ${nodes[rel.from]}`
+            `<strong>${getNodeDisplayNumber(rel.from)}.</strong> ${nodes[rel.from]}`
         ).join('<br>');
         
         relationText.innerHTML = `
@@ -378,7 +913,7 @@ function renderRelations() {
                 ↓
             </div>
             <div style="background: #f0f9ff; padding: 8px; border-radius: 4px; border-left: 3px solid #3b82f6;">
-                <strong>${toNode + 1}.</strong> ${nodes[toNode]}
+                <strong>${getNodeDisplayNumber(toNode)}.</strong> ${nodes[toNode]}
             </div>
         `;
         
@@ -395,7 +930,7 @@ function renderRelations() {
             deleteButton.className = 'btn-danger';
             deleteButton.style.fontSize = '11px';
             deleteButton.style.padding = '4px 8px';
-            deleteButton.textContent = `${rel.from + 1}→${toNode + 1} 削除`;
+            deleteButton.textContent = `${getNodeDisplayNumber(rel.from)}→${getNodeDisplayNumber(toNode)} 削除`;
             deleteButton.onclick = () => deleteRelation(rel.originalIndex);
             buttonContainer.appendChild(deleteButton);
         });
@@ -407,7 +942,7 @@ function renderRelations() {
             deleteAllButton.style.fontSize = '11px';
             deleteAllButton.style.padding = '4px 8px';
             deleteAllButton.style.backgroundColor = '#dc2626';
-            deleteAllButton.textContent = `全て削除 (→${toNode + 1})`;
+            deleteAllButton.textContent = `全て削除 (→${getNodeDisplayNumber(toNode)})`;
             deleteAllButton.onclick = () => {
                 // 逆順で削除（インデックスのずれを防ぐため）
                 const sortedIndices = fromNodes.map(rel => rel.originalIndex).sort((a, b) => b - a);

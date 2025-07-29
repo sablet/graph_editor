@@ -79,6 +79,33 @@
             font-size: 14px;
         }
         
+        .node-item.child-node {
+            margin-left: 20px;
+            border-left: 3px solid #059669;
+            background: #f0fdf4;
+            display: none !important;
+        }
+        
+        .node-item.child-node.expanded {
+            display: flex !important;
+        }
+        
+        .node-item.parent-node {
+            cursor: pointer;
+        }
+        
+        .expand-icon {
+            margin-right: 8px;
+            font-size: 12px;
+            color: #059669;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+        
         .relation-form {
             background: #f0f9ff;
             border: 1px solid #bae6fd;
@@ -478,7 +505,7 @@
                     <path d="M21 12.1H3"/>
                     <path d="M15.1 18H3"/>
                 </svg>
-                リレーション
+                階層・関係
             </button>
             <button class="tab-button" data-tab="preview">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -516,23 +543,33 @@
             
             <div class="relations-panel" data-panel="relations">
                 <div class="section">
-                    <h3>リレーション追加</h3>
+                    <h3>階層・リレーション設定</h3>
                     <div class="relation-form">
                         <div class="form-row">
                             <div class="form-field">
-                                <label>From (開始ノード) - 複数選択可</label>
-                                <div class="checkbox-container" id="from-checkboxes">
+                                <label id="multi-select-label">From (開始ノード) - 複数選択可</label>
+                                <div class="checkbox-container" id="multi-checkboxes">
                                     <!-- チェックボックスがここに表示される -->
                                 </div>
                             </div>
                             <div class="form-field">
-                                <label for="to-select">To (終了ノード)</label>
-                                <select id="to-select">
+                                <label id="single-select-label" for="single-select">To (終了ノード)</label>
+                                <select id="single-select">
                                     <option value="">To を選択</option>
                                 </select>
                             </div>
-                            <button onclick="addRelation()" style="align-self: flex-start; margin-top: 10px;">リレーション追加</button>
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <button onclick="addHierarchy()" style="flex: 1; background: #059669;">階層関係追加</button>
+                                <button onclick="addRelation()" style="flex: 1;">リレーション追加</button>
+                            </div>
                         </div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h3>階層関係一覧</h3>
+                    <div class="relations-list" id="hierarchy-list">
+                        <!-- 階層関係がここに表示される -->
                     </div>
                 </div>
                 
