@@ -1518,6 +1518,38 @@ function loadProjectData(project) {
     nodeTasks = {...project.data.nodeTasks};
     nodeStatuses = {...project.data.nodeStatuses};
     nodeCardCollapsed = {...project.data.nodeCardCollapsed};
+    
+    // 存在しないノードのタスクとステータスをクリーンアップ
+    cleanupOrphanedData();
+}
+
+// 存在しないノードのデータをクリーンアップ
+function cleanupOrphanedData() {
+    const maxNodeIndex = nodes.length - 1;
+    
+    // 存在しないノードのタスクを削除
+    Object.keys(nodeTasks).forEach(nodeIndexStr => {
+        const nodeIndex = parseInt(nodeIndexStr);
+        if (nodeIndex > maxNodeIndex) {
+            delete nodeTasks[nodeIndex];
+        }
+    });
+    
+    // 存在しないノードのステータスを削除
+    Object.keys(nodeStatuses).forEach(nodeIndexStr => {
+        const nodeIndex = parseInt(nodeIndexStr);
+        if (nodeIndex > maxNodeIndex) {
+            delete nodeStatuses[nodeIndex];
+        }
+    });
+    
+    // 存在しないノードの折りたたみ状態を削除
+    Object.keys(nodeCardCollapsed).forEach(nodeIndexStr => {
+        const nodeIndex = parseInt(nodeIndexStr);
+        if (nodeIndex > maxNodeIndex) {
+            delete nodeCardCollapsed[nodeIndex];
+        }
+    });
 }
 
 // プロジェクト関連のLocalStorage操作
@@ -3095,8 +3127,8 @@ function cleanupNodeCardStateAfterDeletion(deletedIndex) {
 // タスクシステム初期化
 function initializeTaskSystem() {
     // データが空の場合のみ初期化（LocalStorageから読み込まれた場合は保持）
-    if (Object.keys(nodeTasks).length === 0) {
-        // サンプルタスクを追加
+    if (Object.keys(nodeTasks).length === 0 && nodes.length > 0) {
+        // サンプルタスクを追加（ノードが存在する場合のみ）
         addSampleTasks();
     }
     
