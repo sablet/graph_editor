@@ -3168,8 +3168,8 @@ function setupPreviewTabs() {
         });
     });
     
-    // 初期状態でgraphタブをアクティブにする
-    switchPreviewTab('graph');
+    // 初期状態で全ノード表示タブをアクティブにする
+    switchPreviewTab('all-tasks');
 }
 
 function switchPreviewTab(activeTab) {

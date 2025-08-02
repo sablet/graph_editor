@@ -944,33 +944,36 @@
             <div class="preview-panel" data-panel="preview">
                 <!-- プレビューパネル用タブナビゲーション -->
                 <div class="preview-tabs">
-                    <button class="preview-tab-button active" data-preview-tab="graph">
-                        📊 グラフプレビュー
+                    <button class="preview-tab-button active" data-preview-tab="all-tasks">
+                        📋 全ノード表示
                     </button>
                     <button class="preview-tab-button" data-preview-tab="tasks">
                         📋 ノードタスク管理
                     </button>
-                    <button class="preview-tab-button" data-preview-tab="all-tasks">
-                        📋 全ノード表示
+                    <button class="preview-tab-button" data-preview-tab="graph">
+                        📊 グラフプレビュー
                     </button>
                 </div>
                 
-                <div class="section graph-section" data-preview-section="graph">
-                    <h3>グラフプレビュー</h3>
-                    <div class="mermaid-output">
-                        <div class="diagram-controls">
-                            <button class="control-button" onclick="zoomIn()">拡大 (+)</button>
-                            <button class="control-button" onclick="zoomOut()">縮小 (-)</button>
-                            <button class="control-button" onclick="resetZoom()">リセット</button>
-                            <span class="zoom-level" id="zoom-level">100%</span>
-                            <button class="control-button" onclick="fitToContainer()">画面に合わせる</button>
-                            <button class="control-button" onclick="openFullscreen()" style="background: #059669;">全画面表示</button>
-                        </div>
-                        <div class="diagram-container" id="diagram-container">
-                            <div id="mermaid-diagram">
-                                <!-- Mermaidダイアグラムがここに描画される -->
+                <!-- 全ノードタスク表示セクション -->
+                <div class="section all-tasks-section" data-preview-section="all-tasks">
+                    <h3>全ノードタスク・ステータス管理</h3>
+                    
+                    <!-- 全体プログレスバー -->
+                    <div id="overall-progress-container" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                        <div style="margin-bottom: 16px;">
+                            <h4 style="margin: 0 0 8px 0; color: #374151; font-size: 16px;">📊 全体進捗</h4>
+                            <div id="overall-node-progress" style="margin-bottom: 12px;">
+                                <!-- 全ノード進捗がここに表示される -->
+                            </div>
+                            <div id="overall-task-progress">
+                                <!-- 全タスク進捗がここに表示される -->
                             </div>
                         </div>
+                    </div>
+                    
+                    <div id="all-tasks-container" style="max-height: 600px; overflow-y: auto;">
+                        <!-- 全ノードのタスクとステータスがここに表示される -->
                     </div>
                 </div>
                 
@@ -1004,29 +1007,26 @@
                     </div>
                 </div>
                 
-                <!-- 全ノードタスク表示セクション -->
-                <div class="section all-tasks-section" data-preview-section="all-tasks" style="display: none;">
-                    <h3>全ノードタスク・ステータス管理</h3>
-                    
-                    <!-- 全体プログレスバー -->
-                    <div id="overall-progress-container" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-                        <div style="margin-bottom: 16px;">
-                            <h4 style="margin: 0 0 8px 0; color: #374151; font-size: 16px;">📊 全体進捗</h4>
-                            <div id="overall-node-progress" style="margin-bottom: 12px;">
-                                <!-- 全ノード進捗がここに表示される -->
-                            </div>
-                            <div id="overall-task-progress">
-                                <!-- 全タスク進捗がここに表示される -->
+                <div class="section graph-section" data-preview-section="graph" style="display: none;">
+                    <h3>グラフプレビュー</h3>
+                    <div class="mermaid-output">
+                        <div class="diagram-controls">
+                            <button class="control-button" onclick="zoomIn()">拡大 (+)</button>
+                            <button class="control-button" onclick="zoomOut()">縮小 (-)</button>
+                            <button class="control-button" onclick="resetZoom()">リセット</button>
+                            <span class="zoom-level" id="zoom-level">100%</span>
+                            <button class="control-button" onclick="fitToContainer()">画面に合わせる</button>
+                            <button class="control-button" onclick="openFullscreen()" style="background: #059669;">全画面表示</button>
+                        </div>
+                        <div class="diagram-container" id="diagram-container">
+                            <div id="mermaid-diagram">
+                                <!-- Mermaidダイアグラムがここに描画される -->
                             </div>
                         </div>
                     </div>
-                    
-                    <div id="all-tasks-container" style="max-height: 600px; overflow-y: auto;">
-                        <!-- 全ノードのタスクとステータスがここに表示される -->
-                    </div>
                 </div>
                 
-                <div class="section" data-preview-section="graph">
+                <div class="section" data-preview-section="graph" style="display: none;">
                     <details class="code-details">
                         <summary class="code-summary">
                             <h3 style="display: inline; margin: 0;">Mermaidコード（デバッグ用）</h3>
