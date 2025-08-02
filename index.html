@@ -403,6 +403,225 @@
             cursor: grabbing;
         }
         
+        /* タスク管理スタイル */
+        .task-node-selector {
+            margin-bottom: 15px;
+        }
+        
+        .task-node-selector label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .task-node-selector select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+        }
+        
+        .task-list-container {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        
+        .selected-node-info {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .task-progress {
+            font-weight: 600;
+            color: #059669;
+        }
+        
+        .task-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+            gap: 10px;
+        }
+        
+        .task-item:last-child {
+            border-bottom: none;
+        }
+        
+        .task-checkbox {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+        }
+        
+        .task-text {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #374151;
+        }
+        
+        .task-text.completed {
+            text-decoration: line-through;
+            color: #6b7280;
+        }
+        
+        .task-menu {
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .task-menu-button {
+            background: none;
+            border: none;
+            padding: 6px;
+            cursor: pointer;
+            border-radius: 4px;
+            color: #6b7280;
+            font-size: 14px;
+            min-width: 28px;
+            min-height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .task-menu-button:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .task-menu-dropdown {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            min-width: 120px;
+            margin-top: 2px;
+        }
+        
+        .task-menu-dropdown button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 8px 12px;
+            text-align: left;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 13px;
+            color: #374151;
+        }
+        
+        .task-menu-dropdown button:hover {
+            background: #f3f4f6;
+        }
+        
+        .task-menu-dropdown button:first-child {
+            border-radius: 6px 6px 0 0;
+        }
+        
+        .task-menu-dropdown button:last-child {
+            border-radius: 0 0 6px 6px;
+        }
+        
+        .add-task-form {
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 15px;
+        }
+        
+        .add-task-input-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .add-task-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .add-task-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px #3b82f6;
+        }
+        
+        .add-task-button {
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .add-task-button:hover {
+            background: #2563eb;
+        }
+        
+        /* プレビューパネル用タブナビゲーション */
+        .preview-tabs {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+            margin: -20px -20px 20px -20px;
+            padding: 0;
+        }
+        
+        .preview-tab-button {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .preview-tab-button.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+            font-weight: 600;
+        }
+        
+        .preview-tab-button:hover:not(.active) {
+            color: #374151;
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
         /* モバイル用タブスタイル */
         .mobile-tabs {
             display: none;
@@ -559,6 +778,37 @@
                 width: 100%;
                 box-sizing: border-box;
             }
+            
+            /* タスク管理のモバイル対応 */
+            .task-menu-button {
+                min-width: 32px;
+                min-height: 32px;
+                padding: 8px;
+            }
+            
+            .task-menu-dropdown {
+                min-width: 140px;
+            }
+            
+            .task-menu-dropdown button {
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+            
+            .add-task-input {
+                font-size: 16px; /* iOS ズーム防止 */
+            }
+            
+            /* プレビュータブのモバイル対応 */
+            .preview-tabs {
+                margin: -15px -15px 15px -15px;
+            }
+            
+            .preview-tab-button {
+                padding: 10px 12px;
+                font-size: 13px;
+                gap: 6px;
+            }
         }
     </style>
 </head>
@@ -658,7 +908,20 @@
             </div>
             
             <div class="preview-panel" data-panel="preview">
-                <div class="section">
+                <!-- プレビューパネル用タブナビゲーション -->
+                <div class="preview-tabs">
+                    <button class="preview-tab-button active" data-preview-tab="graph">
+                        📊 グラフプレビュー
+                    </button>
+                    <button class="preview-tab-button" data-preview-tab="tasks">
+                        📋 ノードタスク管理
+                    </button>
+                    <button class="preview-tab-button" data-preview-tab="all-tasks">
+                        📋 全ノード表示
+                    </button>
+                </div>
+                
+                <div class="section graph-section" data-preview-section="graph">
                     <h3>グラフプレビュー</h3>
                     <div class="mermaid-output">
                         <div class="diagram-controls">
@@ -677,7 +940,59 @@
                     </div>
                 </div>
                 
-                <div class="section">
+                <div class="section task-section" id="task-management-section" data-preview-section="tasks" style="display: none;">
+                    <h3>📋 ノードタスク管理</h3>
+                    <div class="task-node-selector">
+                        <label for="task-node-select">ノード選択:</label>
+                        <select id="task-node-select" onchange="showSelectedNodeTasks()">
+                            <option value="">タスクを管理するノードを選択</option>
+                        </select>
+                    </div>
+                    
+                    <div class="task-list-container" id="task-list-container" style="display: none;">
+                        <div class="selected-node-info" id="selected-node-info">
+                            <!-- ノード情報がここに表示される -->
+                        </div>
+                        
+                        <div class="task-list" id="task-list">
+                            <!-- タスクリストがここに表示される -->
+                        </div>
+                        
+                        <div class="add-task-form">
+                            <div class="add-task-input-row">
+                                <input type="text" 
+                                    id="new-task-input" 
+                                    class="add-task-input" 
+                                    placeholder="新しいタスクを入力... (Enterで追加)">
+                                <button class="add-task-button" onclick="addNewTask()">追加</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 全ノードタスク表示セクション -->
+                <div class="section all-tasks-section" data-preview-section="all-tasks" style="display: none;">
+                    <h3>全ノードタスク・ステータス管理</h3>
+                    
+                    <!-- 全体プログレスバー -->
+                    <div id="overall-progress-container" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                        <div style="margin-bottom: 16px;">
+                            <h4 style="margin: 0 0 8px 0; color: #374151; font-size: 16px;">📊 全体進捗</h4>
+                            <div id="overall-node-progress" style="margin-bottom: 12px;">
+                                <!-- 全ノード進捗がここに表示される -->
+                            </div>
+                            <div id="overall-task-progress">
+                                <!-- 全タスク進捗がここに表示される -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="all-tasks-container" style="max-height: 600px; overflow-y: auto;">
+                        <!-- 全ノードのタスクとステータスがここに表示される -->
+                    </div>
+                </div>
+                
+                <div class="section" data-preview-section="graph">
                     <details class="code-details">
                         <summary class="code-summary">
                             <h3 style="display: inline; margin: 0;">Mermaidコード（デバッグ用）</h3>

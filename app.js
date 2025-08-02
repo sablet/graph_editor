@@ -46,6 +46,16 @@ let fullscreenZoom = 1;
 let isFullscreenDragging = false;
 let fullscreenLastMousePos = { x: 0, y: 0 };
 
+// タスク管理データ
+let nodeTasks = {};
+let selectedNodeIndex = null;
+
+// ノードステータス管理データ
+let nodeStatuses = {};
+
+// ノードカード折りたたみ状態管理
+let nodeCardCollapsed = {};
+
 // Mermaidの設定
 mermaid.initialize({ 
     startOnLoad: false,
@@ -68,6 +78,12 @@ document.addEventListener('DOMContentLoaded', function() {
     setupDiagramControls();
     setupFullscreenControls();
     setupMobileTabs();
+    
+    // プレビューパネルタブ機能初期化
+    setupPreviewTabs();
+    
+    // タスク機能初期化
+    initializeTaskSystem();
     
     // Ctrl+Enterキーでシングルノード追加
     document.getElementById('node-input').addEventListener('keydown', function(e) {
@@ -120,6 +136,7 @@ function addSingleNode() {
     
     renderNodes();
     renderSelects();
+    updateTaskNodeSelect();
 }
 
 // バルクノード追加（複数行対応・確認ダイアログ付き）
@@ -179,6 +196,7 @@ function addBulkNodes() {
         renderNodes();
         renderSelects();
         renderHierarchySelects();
+        updateTaskNodeSelect();
         
         let resultMessage = `${validNodes.length}個のノードを追加しました。`;
         if (duplicates.length > 0) {
@@ -190,7 +208,7 @@ function addBulkNodes() {
 
 // ノード削除
 function deleteNode(index) {
-    if (confirm(`ノード「${nodes[index]}」を削除しますか？関連するリレーションと階層関係も削除されます。`)) {
+    if (confirm(`ノード「${nodes[index]}」を削除しますか？関連するリレーション、階層関係、タスクも削除されます。`)) {
         // 関連するリレーションを削除
         relations = relations.filter(rel => rel.from !== index && rel.to !== index);
         
@@ -211,6 +229,15 @@ function deleteNode(index) {
             parent: hier.parent > index ? hier.parent - 1 : hier.parent
         })).filter(hier => hier.children.length > 0);
         
+        // タスクデータのクリーンアップ
+        cleanupTasksAfterNodeDeletion(index);
+        
+        // ステータスデータのクリーンアップ
+        cleanupNodeStatusAfterDeletion(index);
+        
+        // 折りたたみ状態のクリーンアップ
+        cleanupNodeCardStateAfterDeletion(index);
+        
         // ノードを削除
         nodes.splice(index, 1);
         
@@ -219,6 +246,7 @@ function deleteNode(index) {
         renderHierarchySelects();
         renderRelations();
         renderHierarchy();
+        updateTaskNodeSelect();
         generateMermaidCode();
     }
 }
@@ -323,7 +351,23 @@ function renderNodeItem(node, index, isChild = false, parentIndex = null, depth 
     }
     
     const nodeText = document.createElement('span');
-    nodeText.textContent = `${getNodeDisplayNumber(index)}. ${node}`;
+    const statusInfo = getNodeStatusInfo(index);
+    
+    // ノード名の前にステータスインジケーターを追加
+    const statusIndicator = document.createElement('span');
+    statusIndicator.style.cssText = `
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: ${statusInfo.color};
+        margin-right: 6px;
+        vertical-align: middle;
+    `;
+    statusIndicator.title = `ステータス: ${statusInfo.label}`;
+    
+    nodeText.appendChild(statusIndicator);
+    nodeText.appendChild(document.createTextNode(`${getNodeDisplayNumber(index)}. ${node}`));
     nodeText.style.marginRight = '10px';
     
     const deleteButton = document.createElement('button');
@@ -379,7 +423,10 @@ function hideNodeAndDescendants(nodeElement) {
     
     // この要素のノードインデックスを取得
     const deleteButton = nodeElement.querySelector('.btn-danger');
-    const nodeIndex = parseInt(deleteButton.onclick.toString().match(/deleteNode\((\d+)\)/)?.[1]);
+    let nodeIndex;
+    if (deleteButton && deleteButton.onclick) {
+        nodeIndex = parseInt(deleteButton.onclick.toString().match(/deleteNode\((\d+)\)/)?.[1]);
+    }
     
     if (nodeIndex !== undefined) {
         // このノードの子ノードもすべて非表示にする
@@ -1275,6 +1322,1118 @@ function fitToFullscreenContainer() {
         setFullscreenZoom(scale);
         container.scrollLeft = 0;
         container.scrollTop = 0;
+    }
+}
+
+// タスク管理 CRUD 操作関数
+
+// Create - タスク追加
+function addTaskToNode(nodeIndex, taskText) {
+    // 入力検証
+    if (!taskText || taskText.trim() === '') {
+        return false;
+    }
+    
+    // ノード配列初期化
+    if (!nodeTasks[nodeIndex]) {
+        nodeTasks[nodeIndex] = [];
+    }
+    
+    // 新規タスク作成
+    const newTask = {
+        id: "task_" + Date.now(),
+        text: taskText.trim(),
+        completed: false
+    };
+    
+    // 配列に追加
+    nodeTasks[nodeIndex].push(newTask);
+    
+    // UI更新
+    renderTaskList(nodeIndex);
+    updateOverallProgress(); // 全体進捗も更新
+    
+    return newTask.id;
+}
+
+// Read - タスク取得
+function getNodeTasks(nodeIndex) {
+    return nodeTasks[nodeIndex] || [];
+}
+
+function getTaskById(nodeIndex, taskId) {
+    const tasks = nodeTasks[nodeIndex] || [];
+    return tasks.find(task => task.id === taskId) || null;
+}
+
+function getAllTaskStats() {
+    let totalTasks = 0;
+    let completedTasks = 0;
+    
+    Object.values(nodeTasks).forEach(tasks => {
+        totalTasks += tasks.length;
+        completedTasks += tasks.filter(t => t.completed).length;
+    });
+    
+    return {
+        total: totalTasks,
+        completed: completedTasks,
+        percentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+    };
+}
+
+// Update - タスク更新
+function updateTaskText(nodeIndex, taskId, newText) {
+    const tasks = nodeTasks[nodeIndex] || [];
+    const task = tasks.find(t => t.id === taskId);
+    
+    if (task && newText.trim() !== '') {
+        task.text = newText.trim();
+        renderTaskList(nodeIndex);
+        updateOverallProgress(); // 全体進捗も更新
+        return true;
+    }
+    
+    return false;
+}
+
+function toggleTaskCompletion(nodeIndex, taskId) {
+    const tasks = nodeTasks[nodeIndex] || [];
+    const task = tasks.find(t => t.id === taskId);
+    
+    if (task) {
+        task.completed = !task.completed;
+        renderTaskList(nodeIndex);
+        updateOverallProgress(); // 全体進捗も更新
+        return task.completed;
+    }
+    
+    return null;
+}
+
+// Delete - タスク削除
+function deleteTask(nodeIndex, taskId) {
+    if (!nodeTasks[nodeIndex]) {
+        return false;
+    }
+    
+    const originalLength = nodeTasks[nodeIndex].length;
+    nodeTasks[nodeIndex] = nodeTasks[nodeIndex].filter(task => task.id !== taskId);
+    
+    const deleted = originalLength > nodeTasks[nodeIndex].length;
+    
+    if (deleted) {
+        renderTaskList(nodeIndex);
+        updateOverallProgress(); // 全体進捗も更新
+    }
+    
+    return deleted;
+}
+
+function deleteAllNodeTasks(nodeIndex) {
+    const taskCount = nodeTasks[nodeIndex] ? nodeTasks[nodeIndex].length : 0;
+    
+    delete nodeTasks[nodeIndex];
+    renderTaskList(nodeIndex);
+    updateOverallProgress(); // 全体進捗も更新
+    
+    return taskCount;
+}
+
+// タスクリスト表示制御
+function showTaskList() {
+    const taskContainer = document.getElementById('task-list-container');
+    if (taskContainer) {
+        taskContainer.style.display = 'block';
+    }
+    
+    // タスクタブが選択されていない場合は自動的に切り替える
+    const activeTab = document.querySelector('.preview-tab-button.active');
+    if (activeTab && activeTab.dataset.previewTab !== 'tasks') {
+        switchPreviewTab('tasks');
+    }
+}
+
+function hideTaskList() {
+    const taskContainer = document.getElementById('task-list-container');
+    if (taskContainer) {
+        taskContainer.style.display = 'none';
+    }
+}
+
+// ノード選択プルダウン更新
+function updateTaskNodeSelect() {
+    const select = document.getElementById('task-node-select');
+    if (!select) return;
+    
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">タスクを管理するノードを選択</option>';
+    
+    nodes.forEach((node, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        const statusInfo = getNodeStatusInfo(index);
+        
+        // ノード名とステータスを表示
+        option.textContent = `${getNodeDisplayNumber(index)}. ${node} [${statusInfo.label}]`;
+        
+        // タスク数を表示
+        const taskCount = getNodeTasks(index).length;
+        const completedCount = getNodeTasks(index).filter(t => t.completed).length;
+        
+        if (taskCount > 0) {
+            option.textContent += ` (${completedCount}/${taskCount})`;
+        }
+        
+        select.appendChild(option);
+    });
+    
+    // 前の選択を復元
+    if (currentValue !== '' && currentValue < nodes.length) {
+        select.value = currentValue;
+    }
+}
+
+// 選択ノード表示
+function showSelectedNodeTasks() {
+    const select = document.getElementById('task-node-select');
+    const nodeIndex = parseInt(select.value);
+    
+    if (isNaN(nodeIndex)) {
+        hideTaskList();
+        return;
+    }
+    
+    selectedNodeIndex = nodeIndex;
+    renderTaskList(nodeIndex);
+    showTaskList();
+}
+
+// タスクリスト描画
+function renderTaskList(nodeIndex) {
+    const taskList = document.getElementById('task-list');
+    const selectedNodeInfo = document.getElementById('selected-node-info');
+    
+    if (!taskList || !selectedNodeInfo) return;
+    
+    // ノード情報表示
+    const tasks = getNodeTasks(nodeIndex);
+    const completedCount = tasks.filter(t => t.completed).length;
+    const totalCount = tasks.length;
+    const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    const statusInfo = getNodeStatusInfo(nodeIndex);
+    
+    selectedNodeInfo.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="font-weight: 600;">選択ノード: 「${getNodeDisplayNumber(nodeIndex)}. ${nodes[nodeIndex]}」</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div onclick="openNodeStatusEditor(${nodeIndex})" 
+                     style="background: ${statusInfo.color}; color: white; padding: 8px 16px; border-radius: 12px; font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px; cursor: pointer; border: none; transition: opacity 0.2s ease;"
+                     onmouseover="this.style.opacity='0.8'" 
+                     onmouseout="this.style.opacity='1'"
+                     title="クリックしてステータスを変更">
+                    <span>${statusInfo.label}</span>
+                    <span style="font-size: 10px;">⚙️</span>
+                </div>
+            </div>
+        </div>
+        <span class="task-progress">進捗: ${completedCount}/${totalCount} 完了 (${percentage}%)</span>
+    `;
+    
+    // タスクリスト描画
+    taskList.innerHTML = '';
+    
+    if (tasks.length === 0) {
+        taskList.innerHTML = `
+            <div style="color: #6b7280; text-align: center; padding: 20px; font-style: italic;">
+                まだタスクがありません<br>
+                下のフォームから追加してください
+            </div>
+        `;
+        return;
+    }
+    
+    tasks.forEach(task => {
+        const taskItem = document.createElement('div');
+        taskItem.className = 'task-item';
+        taskItem.innerHTML = `
+            <input type="checkbox" 
+                class="task-checkbox" 
+                ${task.completed ? 'checked' : ''} 
+                onchange="toggleTaskCompletion(${nodeIndex}, '${task.id}')"
+                aria-label="タスク完了状態">
+            <span class="task-text ${task.completed ? 'completed' : ''}" 
+                id="task-text-${task.id}">${task.text}</span>
+            <div class="task-menu">
+                <button class="task-menu-button" 
+                    onclick="toggleTaskMenu('${task.id}')" 
+                    aria-label="タスクメニューを開く"
+                    aria-expanded="false"
+                    aria-haspopup="menu">⋯</button>
+                <div class="task-menu-dropdown" 
+                    id="menu-${task.id}" 
+                    style="display: none;"
+                    role="menu"
+                    aria-hidden="true">
+                    <button onclick="editTask(${nodeIndex}, '${task.id}')" role="menuitem">✏️ 編集</button>
+                    <button onclick="deleteTask(${nodeIndex}, '${task.id}')" role="menuitem">🗑️ 削除</button>
+                </div>
+            </div>
+        `;
+        taskList.appendChild(taskItem);
+    });
+}
+
+// 新規タスク追加
+function addNewTask() {
+    const input = document.getElementById('new-task-input');
+    const taskText = input.value.trim();
+    
+    if (!taskText) {
+        return;
+    }
+    
+    if (selectedNodeIndex === null) {
+        alert('タスクを追加するノードを選択してください');
+        return;
+    }
+    
+    const taskId = addTaskToNode(selectedNodeIndex, taskText);
+    if (taskId) {
+        input.value = '';
+    }
+}
+
+// 三点リーダーメニュー制御
+function toggleTaskMenu(taskId) {
+    const menu = document.getElementById(`menu-${taskId}`);
+    const button = menu.previousElementSibling;
+    
+    // 他のメニューを閉じる
+    closeAllTaskMenus();
+    
+    // 現在のメニューを表示
+    if (menu.style.display === 'none') {
+        menu.style.display = 'block';
+        button.setAttribute('aria-expanded', 'true');
+        menu.setAttribute('aria-hidden', 'false');
+    }
+}
+
+function closeAllTaskMenus() {
+    const menus = document.querySelectorAll('.task-menu-dropdown');
+    menus.forEach(menu => {
+        menu.style.display = 'none';
+        const button = menu.previousElementSibling;
+        button.setAttribute('aria-expanded', 'false');
+        menu.setAttribute('aria-hidden', 'true');
+    });
+}
+
+// インライン編集
+function editTask(nodeIndex, taskId) {
+    closeAllTaskMenus();
+    
+    const taskTextSpan = document.getElementById(`task-text-${taskId}`);
+    const currentText = taskTextSpan.textContent;
+    
+    // 編集用input要素を作成
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentText;
+    input.className = 'task-edit-input';
+    input.style.cssText = `
+        flex: 1;
+        padding: 4px 8px;
+        border: 1px solid #3b82f6;
+        border-radius: 4px;
+        font-size: 14px;
+        box-shadow: 0 0 0 1px #3b82f6;
+    `;
+    
+    // 保存・キャンセル関数
+    const saveEdit = () => {
+        const newText = input.value.trim();
+        if (newText && newText !== currentText) {
+            updateTaskText(nodeIndex, taskId, newText);
+        } else {
+            taskTextSpan.textContent = currentText;
+            taskTextSpan.style.display = '';
+        }
+        input.remove();
+    };
+    
+    const cancelEdit = () => {
+        taskTextSpan.style.display = '';
+        input.remove();
+    };
+    
+    // イベントリスナー
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+        }
+    });
+    
+    input.addEventListener('blur', saveEdit);
+    
+    // spanを隠してinputを挿入
+    taskTextSpan.style.display = 'none';
+    taskTextSpan.parentNode.insertBefore(input, taskTextSpan);
+    input.focus();
+    input.select();
+}
+
+// ノード削除時のタスククリーンアップ
+function cleanupTasksAfterNodeDeletion(deletedIndex) {
+    // 削除されたノードのタスクを削除
+    delete nodeTasks[deletedIndex];
+    
+    // インデックス調整（他のノードのタスクも移動）
+    const newNodeTasks = {};
+    
+    Object.keys(nodeTasks).forEach(nodeIndexStr => {
+        const nodeIndex = parseInt(nodeIndexStr);
+        
+        if (nodeIndex > deletedIndex) {
+            // インデックスを1つ減らす
+            newNodeTasks[nodeIndex - 1] = nodeTasks[nodeIndex];
+        } else {
+            // そのまま保持
+            newNodeTasks[nodeIndex] = nodeTasks[nodeIndex];
+        }
+    });
+    
+    nodeTasks = newNodeTasks;
+    
+    // 選択中ノードの処理
+    if (selectedNodeIndex === deletedIndex) {
+        selectedNodeIndex = null;
+        hideTaskList();
+    } else if (selectedNodeIndex > deletedIndex) {
+        selectedNodeIndex--;
+    }
+}
+
+// ノードステータス管理 CRUD 操作関数
+
+// ノードステータスの状態定義
+const NODE_STATUSES = {
+    NOT_STARTED: { id: 'not_started', label: '未着手', color: '#6b7280', bgColor: '#f9fafb' },
+    IN_PROGRESS: { id: 'in_progress', label: '進行中', color: '#3b82f6', bgColor: '#eff6ff' },
+    ON_HOLD: { id: 'on_hold', label: '保留', color: '#f59e0b', bgColor: '#fffbeb' },
+    COMPLETED: { id: 'completed', label: '完了', color: '#059669', bgColor: '#f0fdf4' },
+    BLOCKED: { id: 'blocked', label: 'ブロック', color: '#dc2626', bgColor: '#fef2f2' }
+};
+
+// ノードステータス取得
+function getNodeStatus(nodeIndex) {
+    return nodeStatuses[nodeIndex] || NODE_STATUSES.NOT_STARTED.id;
+}
+
+// ノードステータス設定
+function setNodeStatus(nodeIndex, statusId) {
+    if (NODE_STATUSES[statusId.toUpperCase()]) {
+        nodeStatuses[nodeIndex] = statusId;
+        return true;
+    }
+    return false;
+}
+
+// ノードステータス情報取得
+function getNodeStatusInfo(nodeIndex) {
+    const statusId = getNodeStatus(nodeIndex);
+    return NODE_STATUSES[statusId.toUpperCase()] || NODE_STATUSES.NOT_STARTED;
+}
+
+// 全体進捗を更新
+function updateOverallProgress() {
+    // 全ノードの進捗を計算
+    const totalNodes = nodes.length;
+    const completedNodes = Object.keys(nodeStatuses).filter(nodeIndex => 
+        nodeStatuses[nodeIndex] === 'completed'
+    ).length;
+    const nodeProgressPercentage = totalNodes > 0 ? Math.round((completedNodes / totalNodes) * 100) : 0;
+    
+    // 全タスクの進捗を計算
+    const taskStats = getAllTaskStats();
+    
+    // ノード進捗を表示
+    const nodeProgressElement = document.getElementById('overall-node-progress');
+    if (nodeProgressElement) {
+        nodeProgressElement.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px; color: #6b7280;">
+                <span>ノード進捗 (完了ステータス)</span>
+                <span>${completedNodes}/${totalNodes} (${nodeProgressPercentage}%)</span>
+            </div>
+            <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+                <div style="background: #059669; height: 100%; width: ${nodeProgressPercentage}%; transition: width 0.3s ease;"></div>
+            </div>
+        `;
+    }
+    
+    // タスク進捗を表示
+    const taskProgressElement = document.getElementById('overall-task-progress');
+    if (taskProgressElement) {
+        taskProgressElement.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px; color: #6b7280;">
+                <span>タスク進捗 (全ノード)</span>
+                <span>${taskStats.completed}/${taskStats.total} (${taskStats.percentage}%)</span>
+            </div>
+            <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+                <div style="background: #3b82f6; height: 100%; width: ${taskStats.percentage}%; transition: width 0.3s ease;"></div>
+            </div>
+        `;
+    }
+}
+
+// 全ノードタスク表示関数
+function renderAllNodesTasks() {
+    const allTasksContainer = document.getElementById('all-tasks-container');
+    if (!allTasksContainer) return;
+    
+    // 全体進捗を更新
+    updateOverallProgress();
+    
+    allTasksContainer.innerHTML = '';
+    
+    // タスクがあるノードまたはステータスが設定されているノードを取得
+    const relevantNodeIndices = new Set();
+    
+    // タスクがあるノードを追加
+    Object.keys(nodeTasks).forEach(nodeIndex => {
+        if (nodeTasks[nodeIndex] && nodeTasks[nodeIndex].length > 0) {
+            relevantNodeIndices.add(parseInt(nodeIndex));
+        }
+    });
+    
+    // ステータスが設定されているノードを追加
+    Object.keys(nodeStatuses).forEach(nodeIndex => {
+        relevantNodeIndices.add(parseInt(nodeIndex));
+    });
+    
+    // ノードが存在しない場合のメッセージ
+    if (relevantNodeIndices.size === 0) {
+        allTasksContainer.innerHTML = `
+            <div style="color: #6b7280; text-align: center; padding: 40px; font-style: italic;">
+                タスクまたはステータスが設定されているノードがありません<br>
+                個別ノード管理から追加してください
+            </div>
+        `;
+        return;
+    }
+    
+    // ノードインデックス順にソート
+    const sortedIndices = Array.from(relevantNodeIndices).sort((a, b) => a - b);
+    
+    sortedIndices.forEach(nodeIndex => {
+        if (nodeIndex >= 0 && nodeIndex < nodes.length) {
+            renderNodeTaskGroup(nodeIndex, allTasksContainer);
+        }
+    });
+}
+
+// 個別ノードタスクグループを描画
+function renderNodeTaskGroup(nodeIndex, container) {
+    const node = nodes[nodeIndex];
+    const tasks = getNodeTasks(nodeIndex);
+    const statusInfo = getNodeStatusInfo(nodeIndex);
+    
+    const nodeGroup = document.createElement('div');
+    nodeGroup.className = 'node-task-group';
+    nodeGroup.style.cssText = `
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    `;
+    
+    // ノードヘッダー（ステータス付き）
+    const nodeHeader = document.createElement('div');
+    nodeHeader.style.cssText = `
+        background: ${statusInfo.bgColor};
+        border-bottom: 1px solid #e5e7eb;
+        padding: 12px 16px;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    `;
+    
+    // 左側：展開アイコンとタイトル
+    const leftSection = document.createElement('div');
+    leftSection.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        cursor: pointer;
+    `;
+    
+    // 展開/折りたたみアイコン
+    const expandIcon = document.createElement('span');
+    const isCollapsed = nodeCardCollapsed[nodeIndex] || false;
+    expandIcon.textContent = isCollapsed ? '▶' : '▼';
+    expandIcon.style.cssText = `
+        font-size: 14px;
+        color: #6b7280;
+        transition: transform 0.2s ease;
+        user-select: none;
+        font-weight: bold;
+    `;
+    
+    const nodeTitle = document.createElement('div');
+    nodeTitle.style.cssText = `
+        font-weight: 600;
+        font-size: 16px;
+        color: #1f2937;
+        flex: 1;
+    `;
+    nodeTitle.textContent = `${getNodeDisplayNumber(nodeIndex)}. ${node}`;
+    
+    leftSection.appendChild(expandIcon);
+    leftSection.appendChild(nodeTitle);
+    
+    // 展開/折りたたみ機能
+    leftSection.onclick = (e) => {
+        e.stopPropagation();
+        toggleNodeCard(nodeIndex, expandIcon, tasksList, addTaskForm);
+    };
+    
+    const statusBadge = document.createElement('div');
+    statusBadge.style.cssText = `
+        background: ${statusInfo.color};
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    `;
+    statusBadge.innerHTML = `
+        <span>${statusInfo.label}</span>
+        <span style="font-size: 10px; margin-left: 4px;">⚙️</span>
+    `;
+    
+    // バッジ全体をクリック可能にする
+    statusBadge.onclick = (e) => {
+        e.stopPropagation();
+        openNodeStatusEditor(nodeIndex);
+    };
+    statusBadge.onmouseover = () => statusBadge.style.opacity = '0.8';
+    statusBadge.onmouseout = () => statusBadge.style.opacity = '1';
+    statusBadge.title = 'クリックしてステータスを変更';
+    statusBadge.style.cursor = 'pointer';
+    statusBadge.style.transition = 'opacity 0.2s ease';
+    
+    nodeHeader.appendChild(leftSection);
+    nodeHeader.appendChild(statusBadge);
+    
+    // タスクリスト
+    const tasksList = document.createElement('div');
+    tasksList.style.cssText = `
+        padding: 16px;
+    `;
+    
+    if (tasks.length === 0) {
+        tasksList.innerHTML = `
+            <div style="color: #6b7280; font-style: italic; text-align: center; padding: 20px;">
+                タスクがありません
+            </div>
+        `;
+    } else {
+        const completedCount = tasks.filter(t => t.completed).length;
+        const totalCount = tasks.length;
+        const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+        
+        
+        // 個別タスク
+        tasks.forEach(task => {
+            const taskItem = document.createElement('div');
+            taskItem.style.cssText = `
+                display: flex;
+                align-items: center;
+                padding: 8px 0;
+                border-bottom: 1px solid #f3f4f6;
+                gap: 8px;
+            `;
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = task.completed;
+            checkbox.onchange = () => {
+                toggleTaskCompletion(nodeIndex, task.id);
+                renderAllNodesTasks(); // 全体を再描画
+            };
+            
+            const taskText = document.createElement('span');
+            taskText.style.cssText = `
+                flex: 1;
+                ${task.completed ? 'text-decoration: line-through; color: #6b7280;' : ''}
+            `;
+            taskText.textContent = task.text;
+            
+            const editButton = document.createElement('button');
+            editButton.style.cssText = `
+                background: none;
+                border: none;
+                color: #6b7280;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 4px;
+                font-size: 12px;
+            `;
+            editButton.textContent = '✏️';
+            editButton.onclick = () => editTaskInAllView(nodeIndex, task.id, taskText);
+            
+            const deleteButton = document.createElement('button');
+            deleteButton.style.cssText = `
+                background: none;
+                border: none;
+                color: #dc2626;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 4px;
+                font-size: 12px;
+            `;
+            deleteButton.textContent = '🗑️';
+            deleteButton.onclick = () => {
+                if (confirm('このタスクを削除しますか？')) {
+                    deleteTask(nodeIndex, task.id);
+                    renderAllNodesTasks(); // 全体を再描画
+                }
+            };
+            
+            taskItem.appendChild(checkbox);
+            taskItem.appendChild(taskText);
+            taskItem.appendChild(editButton);
+            taskItem.appendChild(deleteButton);
+            
+            tasksList.appendChild(taskItem);
+        });
+    }
+    
+    // タスク追加フォーム
+    const addTaskForm = document.createElement('div');
+    addTaskForm.style.cssText = `
+        padding: 16px;
+        border-top: 1px solid #f3f4f6;
+        background: #f9fafb;
+        border-radius: 0 0 8px 8px;
+    `;
+    addTaskForm.innerHTML = `
+        <div style="display: flex; gap: 8px;">
+            <input type="text" 
+                   id="add-task-input-${nodeIndex}" 
+                   placeholder="新しいタスクを追加..."
+                   style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px;"
+                   onkeypress="if(event.key==='Enter') addTaskToNodeFromAll(${nodeIndex})">
+            <button onclick="addTaskToNodeFromAll(${nodeIndex})"
+                    style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                追加
+            </button>
+        </div>
+    `;
+    
+    // 初期状態で折りたたみ状態を適用
+    if (isCollapsed) {
+        tasksList.style.display = 'none';
+        addTaskForm.style.display = 'none';
+    }
+    
+    nodeGroup.appendChild(nodeHeader);
+    nodeGroup.appendChild(tasksList);
+    nodeGroup.appendChild(addTaskForm);
+    container.appendChild(nodeGroup);
+}
+
+// ノードカードの展開/折りたたみ切り替え
+function toggleNodeCard(nodeIndex, expandIcon, tasksList, addTaskForm) {
+    const isCurrentlyCollapsed = nodeCardCollapsed[nodeIndex] || false;
+    
+    if (isCurrentlyCollapsed) {
+        // 展開する
+        nodeCardCollapsed[nodeIndex] = false;
+        expandIcon.textContent = '▼';
+        tasksList.style.display = 'block';
+        addTaskForm.style.display = 'block';
+    } else {
+        // 折りたたむ
+        nodeCardCollapsed[nodeIndex] = true;
+        expandIcon.textContent = '▶';
+        tasksList.style.display = 'none';
+        addTaskForm.style.display = 'none';
+    }
+}
+
+// 全ノード表示からタスクを追加
+function addTaskToNodeFromAll(nodeIndex) {
+    const input = document.getElementById(`add-task-input-${nodeIndex}`);
+    const taskText = input.value.trim();
+    
+    if (!taskText) return;
+    
+    const taskId = addTaskToNode(nodeIndex, taskText);
+    if (taskId) {
+        input.value = '';
+        renderAllNodesTasks(); // 全体を再描画
+        updateTaskNodeSelect(); // 個別ノード選択も更新
+    }
+}
+
+// 全ノード表示でのタスク編集
+function editTaskInAllView(nodeIndex, taskId, taskTextElement) {
+    const currentText = taskTextElement.textContent;
+    
+    // 編集用input要素を作成
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentText;
+    input.className = 'task-edit-input';
+    input.style.cssText = `
+        flex: 1;
+        padding: 4px 8px;
+        border: 1px solid #3b82f6;
+        border-radius: 4px;
+        font-size: 14px;
+        box-shadow: 0 0 0 1px #3b82f6;
+    `;
+    
+    // 保存・キャンセル関数
+    const saveEdit = () => {
+        const newText = input.value.trim();
+        if (newText && newText !== currentText) {
+            updateTaskText(nodeIndex, taskId, newText);
+            renderAllNodesTasks(); // 全体を再描画
+        } else {
+            taskTextElement.textContent = currentText;
+            taskTextElement.style.display = '';
+        }
+        input.remove();
+    };
+    
+    const cancelEdit = () => {
+        taskTextElement.style.display = '';
+        input.remove();
+    };
+    
+    // イベントリスナー
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+        }
+    });
+    
+    input.addEventListener('blur', saveEdit);
+    
+    // spanを隠してinputを挿入
+    taskTextElement.style.display = 'none';
+    taskTextElement.parentNode.insertBefore(input, taskTextElement);
+    input.focus();
+    input.select();
+}
+
+// ノードステータス編集ダイアログを開く
+function openNodeStatusEditor(nodeIndex) {
+    const currentStatus = getNodeStatus(nodeIndex);
+    const statusOptions = Object.values(NODE_STATUSES);
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    `;
+    
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    `;
+    
+    dialog.innerHTML = `
+        <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">
+            ノードステータス変更
+        </h3>
+        <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 14px;">
+            「${getNodeDisplayNumber(nodeIndex)}. ${nodes[nodeIndex]}」
+        </p>
+        <div id="status-options" style="margin-bottom: 20px;"></div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button id="cancel-status" style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                キャンセル
+            </button>
+            <button id="save-status" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                保存
+            </button>
+        </div>
+    `;
+    
+    const optionsContainer = dialog.querySelector('#status-options');
+    let selectedStatus = currentStatus;
+    
+    statusOptions.forEach(status => {
+        const option = document.createElement('div');
+        option.style.cssText = `
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid ${status.id === currentStatus ? status.color : '#e5e7eb'};
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background: ${status.id === currentStatus ? status.bgColor : 'white'};
+            transition: all 0.2s ease;
+        `;
+        
+        option.innerHTML = `
+            <input type="radio" 
+                   name="nodeStatus" 
+                   value="${status.id}" 
+                   ${status.id === currentStatus ? 'checked' : ''}
+                   style="margin-right: 12px;">
+            <div style="flex: 1;">
+                <div style="font-weight: 500; color: ${status.color};">${status.label}</div>
+            </div>
+        `;
+        
+        option.onclick = () => {
+            // 全ての選択を解除（直接の子要素のみ）
+            Array.from(optionsContainer.children).forEach(opt => {
+                opt.style.border = '2px solid #e5e7eb';
+                opt.style.background = 'white';
+                const radio = opt.querySelector('input[type="radio"]');
+                if (radio) {
+                    radio.checked = false;
+                }
+            });
+            
+            // 選択されたオプションをハイライト
+            option.style.border = `2px solid ${status.color}`;
+            option.style.background = status.bgColor;
+            const radio = option.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.checked = true;
+            }
+            selectedStatus = status.id;
+        };
+        
+        optionsContainer.appendChild(option);
+    });
+    
+    // イベントリスナー
+    dialog.querySelector('#cancel-status').onclick = () => {
+        document.body.removeChild(modal);
+    };
+    
+    dialog.querySelector('#save-status').onclick = () => {
+        setNodeStatus(nodeIndex, selectedStatus);
+        renderAllNodesTasks(); // 全体を再描画
+        
+        // 個別ノード管理のタスクリストも更新（選択中の場合）
+        if (selectedNodeIndex === nodeIndex) {
+            renderTaskList(nodeIndex);
+        }
+        
+        // ノード選択のドロップダウンも更新
+        updateTaskNodeSelect();
+        
+        document.body.removeChild(modal);
+    };
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    };
+    
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
+}
+
+// ノード削除時のステータスクリーンアップ
+function cleanupNodeStatusAfterDeletion(deletedIndex) {
+    // 削除されたノードのステータスを削除
+    delete nodeStatuses[deletedIndex];
+    
+    // インデックス調整
+    const newNodeStatuses = {};
+    
+    Object.keys(nodeStatuses).forEach(nodeIndexStr => {
+        const nodeIndex = parseInt(nodeIndexStr);
+        
+        if (nodeIndex > deletedIndex) {
+            newNodeStatuses[nodeIndex - 1] = nodeStatuses[nodeIndex];
+        } else {
+            newNodeStatuses[nodeIndex] = nodeStatuses[nodeIndex];
+        }
+    });
+    
+    nodeStatuses = newNodeStatuses;
+}
+
+// ノード削除時の折りたたみ状態クリーンアップ
+function cleanupNodeCardStateAfterDeletion(deletedIndex) {
+    // 削除されたノードの折りたたみ状態を削除
+    delete nodeCardCollapsed[deletedIndex];
+    
+    // インデックス調整
+    const newNodeCardCollapsed = {};
+    
+    Object.keys(nodeCardCollapsed).forEach(nodeIndexStr => {
+        const nodeIndex = parseInt(nodeIndexStr);
+        
+        if (nodeIndex > deletedIndex) {
+            newNodeCardCollapsed[nodeIndex - 1] = nodeCardCollapsed[nodeIndex];
+        } else {
+            newNodeCardCollapsed[nodeIndex] = nodeCardCollapsed[nodeIndex];
+        }
+    });
+    
+    nodeCardCollapsed = newNodeCardCollapsed;
+}
+
+// タスクシステム初期化
+function initializeTaskSystem() {
+    // データ初期化
+    nodeTasks = {};
+    nodeStatuses = {};
+    nodeCardCollapsed = {};
+    selectedNodeIndex = null;
+    
+    // サンプルタスクを追加
+    addSampleTasks();
+    
+    // UI初期化
+    updateTaskNodeSelect();
+    setupTaskInputHandlers();
+    
+    console.log('Task system initialized');
+}
+
+// サンプルタスクの追加
+function addSampleTasks() {
+    // ノード0（行き：持っていくべきものが決まってない）にサンプルタスクを追加
+    nodeTasks[0] = [
+        {
+            id: "task_sample_1",
+            text: "パスポート・身分証明書の確認",
+            completed: true
+        },
+        {
+            id: "task_sample_2",
+            text: "旅行先の気候調査",
+            completed: false
+        },
+        {
+            id: "task_sample_3",
+            text: "持参する衣類リスト作成",
+            completed: false
+        }
+    ];
+    
+    // ノード1にもサンプルタスクを追加
+    nodeTasks[1] = [
+        {
+            id: "task_sample_4",
+            text: "新幹線の座席予約",
+            completed: false
+        }
+    ];
+    
+    // サンプルノードステータスを設定
+    nodeStatuses[0] = 'in_progress';  // 進行中
+    nodeStatuses[1] = 'not_started';  // 未着手
+    nodeStatuses[2] = 'completed';    // 完了
+}
+
+function setupTaskInputHandlers() {
+    const taskInput = document.getElementById('new-task-input');
+    if (taskInput) {
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addNewTask();
+            }
+        });
+    }
+    
+    // メニュー外クリックで閉じる
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.task-menu')) {
+            closeAllTaskMenus();
+        }
+    });
+}
+
+// プレビューパネルタブの設定
+function setupPreviewTabs() {
+    const tabButtons = document.querySelectorAll('.preview-tab-button');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const targetTab = this.dataset.previewTab;
+            switchPreviewTab(targetTab);
+        });
+    });
+    
+    // 初期状態でgraphタブをアクティブにする
+    switchPreviewTab('graph');
+}
+
+function switchPreviewTab(activeTab) {
+    // タブボタンの状態を更新
+    const tabButtons = document.querySelectorAll('.preview-tab-button');
+    tabButtons.forEach(button => {
+        if (button.dataset.previewTab === activeTab) {
+            button.classList.add('active');
+        } else {
+            button.classList.remove('active');
+        }
+    });
+    
+    // セクションの表示状態を更新
+    const sections = document.querySelectorAll('[data-preview-section]');
+    sections.forEach(section => {
+        if (section.dataset.previewSection === activeTab) {
+            section.style.display = 'block';
+        } else {
+            section.style.display = 'none';
+        }
+    });
+    
+    // タスクセクションが選択された場合の特別処理
+    if (activeTab === 'tasks') {
+        // タスクリストコンテナを表示状態に戻す（以前に選択されていた場合）
+        if (selectedNodeIndex !== null) {
+            showTaskList();
+        }
+    }
+    
+    // 全ノードタスクセクションが選択された場合の特別処理
+    if (activeTab === 'all-tasks') {
+        renderAllNodesTasks();
     }
 }
 
