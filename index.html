@@ -841,6 +841,24 @@
             </button>
         </div>
 
+        <!-- データ管理セクション -->
+        <div class="data-management-section" style="background: #f3f4f6; border-bottom: 1px solid #e5e7eb; padding: 12px 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto;">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <span style="font-weight: 600; color: #374151; font-size: 14px;">💾 データ管理</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="saveToLocalStorage()" style="background: #059669; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">保存</button>
+                        <button onclick="resetToInitialData()" style="background: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;" title="全データを初期状態にリセット">リセット</button>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="downloadExportData()" style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">エクスポート</button>
+                    <input type="file" id="import-file" accept=".json" style="display: none;" onchange="handleFileImport(event)">
+                    <button onclick="document.getElementById('import-file').click()" style="background: #f59e0b; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">インポート</button>
+                </div>
+            </div>
+        </div>
+
         <div class="main-content">
             <div class="nodes-panel" data-panel="nodes">
                 <div class="section">

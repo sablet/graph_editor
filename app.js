@@ -36,7 +36,7 @@ const initialNodes = [
 ];
 
 // アプリケーションの状態
-let nodes = [...initialNodes];
+let nodes = []; // LocalStorageから読み込み、なければinitialNodesを使用
 let relations = [];
 let nodeHierarchy = []; // 親子関係を保存 {children: [childIndex1, childIndex2], parent: parentIndex}
 let currentZoom = 1;
@@ -68,6 +68,14 @@ mermaid.initialize({
 
 // 初期化
 document.addEventListener('DOMContentLoaded', function() {
+    // LocalStorageからデータを読み込み
+    const loaded = loadFromLocalStorage();
+    
+    // 初回訪問の場合、初期データを保存
+    if (!loaded) {
+        saveToLocalStorage();
+    }
+    
     renderNodes();
     renderSelects();
     renderHierarchySelects();
@@ -137,6 +145,9 @@ function addSingleNode() {
     renderNodes();
     renderSelects();
     updateTaskNodeSelect();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
 }
 
 // バルクノード追加（複数行対応・確認ダイアログ付き）
@@ -198,6 +209,9 @@ function addBulkNodes() {
         renderHierarchySelects();
         updateTaskNodeSelect();
         
+        // LocalStorageに保存
+        saveToLocalStorage();
+        
         let resultMessage = `${validNodes.length}個のノードを追加しました。`;
         if (duplicates.length > 0) {
             resultMessage += `\n\n${duplicates.length}個のノードは重複のため追加されませんでした。`;
@@ -248,6 +262,9 @@ function deleteNode(index) {
         renderHierarchy();
         updateTaskNodeSelect();
         generateMermaidCode();
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
     }
 }
 
@@ -684,6 +701,9 @@ function addHierarchy() {
     updateUILabels(); // ラベルを更新
     generateMermaidCode();
     
+    // LocalStorageに保存
+    saveToLocalStorage();
+    
     // フォームをリセット
     checkboxes.forEach(checkbox => {
         checkbox.checked = false;
@@ -862,6 +882,9 @@ function deleteHierarchyChild(hierarchyIndex, childIndex) {
     regenerateNodeNumbers();
     updateUILabels();
     generateMermaidCode();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
 }
 
 // 階層関係を削除
@@ -871,6 +894,9 @@ function deleteHierarchy(hierarchyIndex) {
     regenerateNodeNumbers();
     updateUILabels();
     generateMermaidCode();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
 }
 
 
@@ -922,6 +948,9 @@ function addRelation() {
     // UIを更新
     renderRelations();
     generateMermaidCode();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
     
     // フォームをリセット
     checkboxes.forEach(checkbox => {
@@ -1031,6 +1060,9 @@ function deleteRelation(index) {
     relations.splice(index, 1);
     renderRelations();
     generateMermaidCode();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
 }
 
 // ノードIDを生成（Mermaid用）
@@ -1325,6 +1357,300 @@ function fitToFullscreenContainer() {
     }
 }
 
+// LocalStorage データ永続化機能
+
+// LocalStorageキー定義
+const STORAGE_KEYS = {
+    NODES: 'graphEditor_nodes',
+    RELATIONS: 'graphEditor_relations', 
+    NODE_HIERARCHY: 'graphEditor_nodeHierarchy',
+    NODE_TASKS: 'graphEditor_nodeTasks',
+    NODE_STATUSES: 'graphEditor_nodeStatuses',
+    NODE_CARD_COLLAPSED: 'graphEditor_nodeCardCollapsed',
+    DATA_VERSION: 'graphEditor_dataVersion'
+};
+
+// データバージョン管理
+const CURRENT_DATA_VERSION = '1.0';
+
+// LocalStorageの可用性チェック
+function isLocalStorageAvailable() {
+    try {
+        const test = '__localStorage_test__';
+        localStorage.setItem(test, test);
+        localStorage.removeItem(test);
+        return true;
+    } catch (e) {
+        console.warn('LocalStorage not available:', e);
+        return false;
+    }
+}
+
+// 全データをLocalStorageに保存
+function saveToLocalStorage() {
+    if (!isLocalStorageAvailable()) {
+        console.warn('LocalStorage not available, data will not be persisted');
+        return false;
+    }
+    
+    try {
+        // データバージョンを保存
+        localStorage.setItem(STORAGE_KEYS.DATA_VERSION, CURRENT_DATA_VERSION);
+        
+        // 各データを個別に保存
+        localStorage.setItem(STORAGE_KEYS.NODES, JSON.stringify(nodes));
+        localStorage.setItem(STORAGE_KEYS.RELATIONS, JSON.stringify(relations));
+        localStorage.setItem(STORAGE_KEYS.NODE_HIERARCHY, JSON.stringify(nodeHierarchy));
+        localStorage.setItem(STORAGE_KEYS.NODE_TASKS, JSON.stringify(nodeTasks));
+        localStorage.setItem(STORAGE_KEYS.NODE_STATUSES, JSON.stringify(nodeStatuses));
+        localStorage.setItem(STORAGE_KEYS.NODE_CARD_COLLAPSED, JSON.stringify(nodeCardCollapsed));
+        
+        console.log('Data saved to localStorage successfully');
+        return true;
+    } catch (e) {
+        console.error('Failed to save to localStorage:', e);
+        return false;
+    }
+}
+
+// LocalStorageからデータを読み込み
+function loadFromLocalStorage() {
+    if (!isLocalStorageAvailable()) {
+        console.warn('LocalStorage not available, using initial data');
+        initializeWithDefaultData();
+        return false;
+    }
+    
+    try {
+        // データバージョンチェック
+        const savedVersion = localStorage.getItem(STORAGE_KEYS.DATA_VERSION);
+        if (savedVersion !== CURRENT_DATA_VERSION) {
+            console.log('Data version mismatch or no saved data, using initial data');
+            initializeWithDefaultData();
+            return false;
+        }
+        
+        // 各データを個別に読み込み
+        const savedNodes = localStorage.getItem(STORAGE_KEYS.NODES);
+        const savedRelations = localStorage.getItem(STORAGE_KEYS.RELATIONS);
+        const savedNodeHierarchy = localStorage.getItem(STORAGE_KEYS.NODE_HIERARCHY);
+        const savedNodeTasks = localStorage.getItem(STORAGE_KEYS.NODE_TASKS);
+        const savedNodeStatuses = localStorage.getItem(STORAGE_KEYS.NODE_STATUSES);
+        const savedNodeCardCollapsed = localStorage.getItem(STORAGE_KEYS.NODE_CARD_COLLAPSED);
+        
+        // データが存在する場合のみ復元、なければ初期データを使用
+        if (savedNodes) {
+            nodes = JSON.parse(savedNodes);
+        } else {
+            nodes = [...initialNodes];
+        }
+        
+        if (savedRelations) {
+            relations = JSON.parse(savedRelations);
+        } else {
+            relations = [];
+        }
+        
+        if (savedNodeHierarchy) {
+            nodeHierarchy = JSON.parse(savedNodeHierarchy);
+        } else {
+            nodeHierarchy = [];
+        }
+        
+        if (savedNodeTasks) {
+            nodeTasks = JSON.parse(savedNodeTasks);
+        } else {
+            nodeTasks = {};
+        }
+        
+        if (savedNodeStatuses) {
+            nodeStatuses = JSON.parse(savedNodeStatuses);
+        } else {
+            nodeStatuses = {};
+        }
+        
+        if (savedNodeCardCollapsed) {
+            nodeCardCollapsed = JSON.parse(savedNodeCardCollapsed);
+        } else {
+            nodeCardCollapsed = {};
+        }
+        
+        console.log('Data loaded from localStorage successfully');
+        return true;
+    } catch (e) {
+        console.error('Failed to load from localStorage:', e);
+        initializeWithDefaultData();
+        return false;
+    }
+}
+
+// 初期データで初期化
+function initializeWithDefaultData() {
+    nodes = [...initialNodes];
+    relations = [];
+    nodeHierarchy = [];
+    nodeTasks = {};
+    nodeStatuses = {};
+    nodeCardCollapsed = {};
+    selectedNodeIndex = null;
+    console.log('Initialized with default data');
+}
+
+// LocalStorageデータをクリア
+function clearLocalStorage() {
+    if (!isLocalStorageAvailable()) {
+        return false;
+    }
+    
+    try {
+        Object.values(STORAGE_KEYS).forEach(key => {
+            localStorage.removeItem(key);
+        });
+        console.log('LocalStorage cleared successfully');
+        return true;
+    } catch (e) {
+        console.error('Failed to clear localStorage:', e);
+        return false;
+    }
+}
+
+// データリセット（初期状態に戻す）
+function resetToInitialData() {
+    // データを初期状態に戻す
+    nodes = [...initialNodes];
+    relations = [];
+    nodeHierarchy = [];
+    nodeTasks = {};
+    selectedNodeIndex = null;
+    nodeStatuses = {};
+    nodeCardCollapsed = {};
+    
+    // LocalStorageをクリア
+    clearLocalStorage();
+    
+    // UIを更新
+    renderNodes();
+    renderSelects();
+    renderHierarchySelects();
+    renderRelations();
+    renderHierarchy();
+    updateTaskNodeSelect();
+    renderAllNodesTasks();
+    generateMermaidCode();
+    
+    console.log('Data reset to initial state');
+}
+
+// エクスポート/インポート機能
+function exportData() {
+    const exportData = {
+        version: CURRENT_DATA_VERSION,
+        timestamp: new Date().toISOString(),
+        data: {
+            nodes,
+            relations,
+            nodeHierarchy,
+            nodeTasks,
+            nodeStatuses,
+            nodeCardCollapsed
+        }
+    };
+    
+    return JSON.stringify(exportData, null, 2);
+}
+
+function importData(jsonData) {
+    try {
+        const importedData = JSON.parse(jsonData);
+        
+        // バージョンチェック
+        if (importedData.version !== CURRENT_DATA_VERSION) {
+            throw new Error(`Data version mismatch. Expected ${CURRENT_DATA_VERSION}, got ${importedData.version}`);
+        }
+        
+        // データの検証
+        if (!importedData.data || !Array.isArray(importedData.data.nodes)) {
+            throw new Error('Invalid data format');
+        }
+        
+        // データを復元
+        nodes = importedData.data.nodes || [...initialNodes];
+        relations = importedData.data.relations || [];
+        nodeHierarchy = importedData.data.nodeHierarchy || [];
+        nodeTasks = importedData.data.nodeTasks || {};
+        nodeStatuses = importedData.data.nodeStatuses || {};
+        nodeCardCollapsed = importedData.data.nodeCardCollapsed || {};
+        selectedNodeIndex = null;
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
+        
+        // UIを更新
+        renderNodes();
+        renderSelects();
+        renderHierarchySelects();
+        renderRelations();
+        renderHierarchy();
+        updateTaskNodeSelect();
+        renderAllNodesTasks();
+        generateMermaidCode();
+        
+        return true;
+    } catch (e) {
+        console.error('Failed to import data:', e);
+        return false;
+    }
+}
+
+// UI統合関数
+
+// エクスポートデータをダウンロード
+function downloadExportData() {
+    try {
+        const data = exportData();
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `graph-editor-data-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('データをエクスポートしました');
+    } catch (e) {
+        console.error('Export failed:', e);
+        alert('エクスポートに失敗しました');
+    }
+}
+
+// ファイルインポートハンドラー
+function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const success = importData(e.target.result);
+            if (success) {
+                alert('データをインポートしました');
+            } else {
+                alert('インポートに失敗しました。ファイル形式を確認してください。');
+            }
+        } catch (err) {
+            console.error('Import error:', err);
+            alert('インポートに失敗しました: ' + err.message);
+        }
+        
+        // ファイル選択をリセット
+        event.target.value = '';
+    };
+    
+    reader.readAsText(file);
+}
+
 // タスク管理 CRUD 操作関数
 
 // Create - タスク追加
@@ -1352,6 +1678,9 @@ function addTaskToNode(nodeIndex, taskText) {
     // UI更新
     renderTaskList(nodeIndex);
     updateOverallProgress(); // 全体進捗も更新
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
     
     return newTask.id;
 }
@@ -1391,6 +1720,9 @@ function updateTaskText(nodeIndex, taskId, newText) {
         task.text = newText.trim();
         renderTaskList(nodeIndex);
         updateOverallProgress(); // 全体進捗も更新
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
         return true;
     }
     
@@ -1405,6 +1737,9 @@ function toggleTaskCompletion(nodeIndex, taskId) {
         task.completed = !task.completed;
         renderTaskList(nodeIndex);
         updateOverallProgress(); // 全体進捗も更新
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
         return task.completed;
     }
     
@@ -1425,6 +1760,9 @@ function deleteTask(nodeIndex, taskId) {
     if (deleted) {
         renderTaskList(nodeIndex);
         updateOverallProgress(); // 全体進捗も更新
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
     }
     
     return deleted;
@@ -1436,6 +1774,9 @@ function deleteAllNodeTasks(nodeIndex) {
     delete nodeTasks[nodeIndex];
     renderTaskList(nodeIndex);
     updateOverallProgress(); // 全体進捗も更新
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
     
     return taskCount;
 }
@@ -1739,6 +2080,9 @@ function getNodeStatus(nodeIndex) {
 function setNodeStatus(nodeIndex, statusId) {
     if (NODE_STATUSES[statusId.toUpperCase()]) {
         nodeStatuses[nodeIndex] = statusId;
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
         return true;
     }
     return false;
@@ -2317,14 +2661,14 @@ function cleanupNodeCardStateAfterDeletion(deletedIndex) {
 
 // タスクシステム初期化
 function initializeTaskSystem() {
-    // データ初期化
-    nodeTasks = {};
-    nodeStatuses = {};
-    nodeCardCollapsed = {};
-    selectedNodeIndex = null;
+    // データが空の場合のみ初期化（LocalStorageから読み込まれた場合は保持）
+    if (Object.keys(nodeTasks).length === 0) {
+        // サンプルタスクを追加
+        addSampleTasks();
+    }
     
-    // サンプルタスクを追加
-    addSampleTasks();
+    // selectedNodeIndexは常にリセット
+    selectedNodeIndex = null;
     
     // UI初期化
     updateTaskNodeSelect();
