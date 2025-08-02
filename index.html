@@ -1158,6 +1158,17 @@
                     <div id="all-tasks-container" style="max-height: 600px; overflow-y: auto;">
                         <!-- 全ノードのタスクとステータスがここに表示される -->
                     </div>
+                    
+                    <!-- カラム最下部のノード追加フォーム -->
+                    <div class="add-task-form" style="margin-top: 20px;">
+                        <div class="add-task-input-row">
+                            <input type="text" 
+                                id="global-new-node-input" 
+                                class="add-task-input" 
+                                placeholder="新しいノードを入力... (Enterで追加)">
+                            <button class="add-task-button" onclick="addGlobalNewNode()">追加</button>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="section task-section" id="task-management-section" data-preview-section="tasks" style="display: none;">

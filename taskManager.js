@@ -330,6 +330,46 @@ function addNewTask() {
 }
 
 /**
+ * グローバル（カラム最下部）からノードを追加
+ */
+function addGlobalNewNode() {
+    const input = document.getElementById('global-new-node-input');
+    const inputText = input.value.trim();
+    
+    if (inputText === '') {
+        alert('ノード名を入力してください');
+        return;
+    }
+    
+    // 最初の行のみを取得し、共通関数で加工
+    const firstLine = inputText.split('\n')[0].trim();
+    const cleanedFirstLine = processNodeText(firstLine);
+    
+    if (cleanedFirstLine === '') {
+        alert('有効なノード名を入力してください');
+        return;
+    }
+    
+    // 重複チェック
+    if (nodes.includes(cleanedFirstLine)) {
+        alert('このノードは既に存在します');
+        return;
+    }
+    
+    // ノードを追加
+    nodes.push(cleanedFirstLine);
+    
+    // 入力をクリア
+    input.value = '';
+    
+    // UI更新
+    updateAllUI();
+    
+    // データを保存
+    saveToLocalStorage();
+}
+
+/**
  * タスクメニューの表示切り替え
  * @param {string} taskId - タスクID
  */

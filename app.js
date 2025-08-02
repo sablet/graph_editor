@@ -806,6 +806,17 @@ function initializeTaskSystem() {
             }
         });
     }
+    
+    // グローバルノード入力のEnterキー処理
+    const globalNewNodeInput = document.getElementById('global-new-node-input');
+    if (globalNewNodeInput) {
+        globalNewNodeInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addGlobalNewNode();
+            }
+        });
+    }
 }
 
 // renderAllNodesTasks のエイリアス（外部モジュールとの互換性のため）
