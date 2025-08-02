@@ -42,7 +42,7 @@ function renderMemoList(nodeIndex) {
 }
 
 /**
- * メモ要素を作成
+ * メモ要素を作成（チャット風）
  * @param {object} memo - メモオブジェクト
  * @param {number} nodeIndex - ノードのインデックス
  * @returns {HTMLElement} メモ要素
@@ -55,11 +55,11 @@ function createMemoElement(memo, nodeIndex) {
     const timestamp = formatTimestamp(memo.timestamp);
     
     memoItem.innerHTML = `
-        <div class="memo-content">${escapeHtml(memo.content)}</div>
-        <div class="memo-meta">
-            <div class="memo-timestamp">${timestamp}</div>
-            <div class="memo-actions">
-                <button class="memo-delete-btn" onclick="deleteMemo(${nodeIndex}, '${memo.id}')">削除</button>
+        <div class="memo-timestamp">${timestamp}</div>
+        <div class="memo-content-wrapper">
+            <div class="memo-content">${escapeHtml(memo.content)}</div>
+            <div class="memo-menu">
+                <button class="memo-menu-button" onclick="toggleMemoMenu(event, ${nodeIndex}, '${memo.id}')">⋯</button>
             </div>
         </div>
     `;
@@ -174,6 +174,183 @@ function deleteMemo(nodeIndex, messageId) {
             alert('メモの削除に失敗しました');
         }
     }
+}
+
+// ===== 三点リーダーメニュー機能 =====
+
+let currentMemoMenuDropdown = null;
+
+/**
+ * メモメニューの表示/非表示を切り替え
+ * @param {Event} event - クリックイベント
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} messageId - メッセージID
+ */
+function toggleMemoMenu(event, nodeIndex, messageId) {
+    event.stopPropagation();
+    
+    // 既存のメニューを閉じる
+    closeMemoMenu();
+    
+    const rect = event.target.getBoundingClientRect();
+    const dropdown = createMemoMenuDropdown(nodeIndex, messageId);
+    
+    // ドロップダウンの位置を調整
+    dropdown.style.left = `${rect.left - 80}px`;
+    dropdown.style.top = `${rect.bottom + 5}px`;
+    
+    document.body.appendChild(dropdown);
+    currentMemoMenuDropdown = dropdown;
+    
+    // クリック外しで閉じる
+    setTimeout(() => {
+        document.addEventListener('click', closeMemoMenu, { once: true });
+    }, 10);
+}
+
+/**
+ * メモメニュードロップダウンを作成
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} messageId - メッセージID
+ * @returns {HTMLElement} ドロップダウン要素
+ */
+function createMemoMenuDropdown(nodeIndex, messageId) {
+    const dropdown = document.createElement('div');
+    dropdown.className = 'memo-menu-dropdown';
+    
+    dropdown.innerHTML = `
+        <button onclick="editMemo(${nodeIndex}, '${messageId}')">
+            ✏️ 編集
+        </button>
+        <button class="delete-action" onclick="deleteMemo(${nodeIndex}, '${messageId}')">
+            🗑️ 削除
+        </button>
+    `;
+    
+    return dropdown;
+}
+
+/**
+ * メモメニューを閉じる
+ */
+function closeMemoMenu() {
+    if (currentMemoMenuDropdown) {
+        currentMemoMenuDropdown.remove();
+        currentMemoMenuDropdown = null;
+    }
+}
+
+/**
+ * メモをインライン編集モードに切り替え
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} messageId - メッセージID
+ */
+function editMemo(nodeIndex, messageId) {
+    closeMemoMenu();
+    
+    // 既に編集中の要素があれば先にキャンセル
+    cancelAllEditing();
+    
+    const memoItem = document.querySelector(`[data-memo-id="${messageId}"]`);
+    if (!memoItem) return;
+    
+    const memos = getChatHistory(nodeIndex);
+    const memo = memos.find(m => m.id === messageId);
+    if (!memo) return;
+    
+    const contentWrapper = memoItem.querySelector('.memo-content-wrapper');
+    const originalContent = memo.content;
+    
+    // 編集フォームを作成
+    contentWrapper.innerHTML = `
+        <div class="memo-content" style="flex: 1;">
+            <textarea class="memo-edit-textarea" id="edit-textarea-${messageId}">${escapeHtml(originalContent)}</textarea>
+            <div class="memo-edit-actions">
+                <button class="memo-edit-button memo-edit-save" onclick="saveMemoEdit(${nodeIndex}, '${messageId}')">保存</button>
+                <button class="memo-edit-button memo-edit-cancel" onclick="cancelMemoEdit(${nodeIndex}, '${messageId}', '${escapeForAttribute(originalContent)}')">キャンセル</button>
+            </div>
+        </div>
+    `;
+    
+    // テキストエリアにフォーカス
+    const textarea = document.getElementById(`edit-textarea-${messageId}`);
+    if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        
+        // Enterキーで保存、Escキーでキャンセル
+        textarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                saveMemoEdit(nodeIndex, messageId);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelMemoEdit(nodeIndex, messageId, originalContent);
+            }
+        });
+    }
+}
+
+/**
+ * メモ編集を保存
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} messageId - メッセージID
+ */
+function saveMemoEdit(nodeIndex, messageId) {
+    const textarea = document.getElementById(`edit-textarea-${messageId}`);
+    if (!textarea) return;
+    
+    const newContent = textarea.value.trim();
+    
+    if (newContent === '') {
+        alert('メモ内容を入力してください');
+        textarea.focus();
+        return;
+    }
+    
+    // dataManager.jsのupdateChatMessage関数を使用
+    const updated = updateChatMessage(nodeIndex, messageId, newContent);
+    
+    if (updated) {
+        // メモ一覧を更新
+        renderMemoList(nodeIndex);
+        console.log('メモが更新されました');
+    } else {
+        alert('メモの更新に失敗しました');
+    }
+}
+
+/**
+ * メモ編集をキャンセル
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} messageId - メッセージID
+ * @param {string} originalContent - 元の内容
+ */
+function cancelMemoEdit(nodeIndex, messageId, originalContent) {
+    // メモ一覧を再描画して元に戻す
+    renderMemoList(nodeIndex);
+}
+
+/**
+ * 全ての編集をキャンセル
+ */
+function cancelAllEditing() {
+    const editingItems = document.querySelectorAll('.memo-edit-textarea');
+    editingItems.forEach(textarea => {
+        const memoItem = textarea.closest('.memo-item');
+        if (memoItem && selectedMemoNodeIndex !== null) {
+            renderMemoList(selectedMemoNodeIndex);
+        }
+    });
+}
+
+/**
+ * 属性用にエスケープ（シングルクォート対応）
+ * @param {string} text - エスケープするテキスト
+ * @returns {string} エスケープされたテキスト
+ */
+function escapeForAttribute(text) {
+    return text.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
 }
 
 // ===== イベント処理 =====

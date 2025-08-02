@@ -994,62 +994,199 @@
             border-radius: 4px;
         }
         
-        /* メモ機能スタイル */
+        /* メモ機能スタイル - チャット風 */
+        .memo-list {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
         .memo-item {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 8px;
+            margin-bottom: 16px;
             position: relative;
-        }
-        
-        .memo-content {
-            font-size: 13px;
-            line-height: 1.4;
-            color: #374151;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            margin-bottom: 6px;
-        }
-        
-        .memo-meta {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 11px;
-            color: #6b7280;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .memo-item:last-child {
+            margin-bottom: 0;
         }
         
         .memo-timestamp {
+            font-size: 11px;
+            color: #9ca3af;
+            opacity: 0.7;
+            flex-shrink: 0;
+            width: 45px;
+            margin-top: 1px;
+        }
+        
+        .memo-content-wrapper {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
             flex: 1;
         }
         
-        .memo-actions {
-            display: flex;
-            gap: 6px;
+        .memo-content {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #374151;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+            flex: 1;
         }
         
-        .memo-delete-btn {
-            background: #dc2626;
-            color: white;
+        .memo-meta {
+            display: none;
+        }
+        
+        
+        .memo-menu {
+            position: relative;
+            margin-left: auto;
+        }
+        
+        .memo-menu-button {
+            background: none;
             border: none;
-            padding: 2px 6px;
-            border-radius: 3px;
             cursor: pointer;
-            font-size: 10px;
+            padding: 2px 4px;
+            color: #9ca3af;
+            font-size: 14px;
+            border-radius: 3px;
+            opacity: 0;
+            transition: all 0.2s ease;
         }
         
-        .memo-delete-btn:hover {
-            background: #b91c1c;
+        .memo-item:hover .memo-menu-button {
+            opacity: 1;
+        }
+        
+        .memo-menu-button:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+            color: #374151;
+        }
+        
+        .memo-menu-dropdown {
+            position: fixed;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            min-width: 100px;
+        }
+        
+        .memo-menu-dropdown button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            padding: 6px 10px;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 12px;
+            color: #374151;
+            transition: background-color 0.2s ease;
+        }
+        
+        .memo-menu-dropdown button:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .memo-menu-dropdown button:first-child {
+            border-radius: 6px 6px 0 0;
+        }
+        
+        .memo-menu-dropdown button:last-child {
+            border-radius: 0 0 6px 6px;
+        }
+        
+        .memo-menu-dropdown button.delete-action {
+            color: #dc2626;
+        }
+        
+        .memo-menu-dropdown button.delete-action:hover {
+            background-color: #fef2f2;
         }
         
         .memo-empty {
             text-align: center;
             color: #9ca3af;
             font-size: 13px;
-            padding: 20px;
+            padding: 30px 20px;
             font-style: italic;
+        }
+        
+        .add-memo-form {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        /* インライン編集スタイル */
+        .memo-edit-textarea {
+            width: 100%;
+            min-height: 40px;
+            padding: 6px 8px;
+            border: 1px solid #3b82f6;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #374151;
+            resize: vertical;
+            font-family: inherit;
+            background: white;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+        
+        .memo-edit-textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+        
+        .memo-edit-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+            justify-content: flex-end;
+        }
+        
+        .memo-edit-button {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .memo-edit-save {
+            background: #059669;
+            color: white;
+        }
+        
+        .memo-edit-save:hover {
+            background: #047857;
+        }
+        
+        .memo-edit-cancel {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .memo-edit-cancel:hover {
+            background: #4b5563;
         }
     </style>
 </head>
@@ -1263,7 +1400,7 @@
                                 📝 メモ
                             </h4>
                             
-                            <div class="memo-list" id="memo-list" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px;">
+                            <div class="memo-list" id="memo-list">
                                 <!-- メモ一覧がここに表示される -->
                             </div>
                             
