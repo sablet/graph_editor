@@ -2571,20 +2571,16 @@ function renderAllNodesTasks() {
     
     allTasksContainer.innerHTML = '';
     
-    // タスクがあるノードまたはステータスが設定されているノードを取得
+    // 全ノードを取得（完了ステータスは除外）
     const relevantNodeIndices = new Set();
     
-    // タスクがあるノードを追加
-    Object.keys(nodeTasks).forEach(nodeIndex => {
-        if (nodeTasks[nodeIndex] && nodeTasks[nodeIndex].length > 0) {
-            relevantNodeIndices.add(parseInt(nodeIndex));
+    // 全ノードをチェック
+    for (let i = 0; i < nodes.length; i++) {
+        const status = nodeStatuses[i] || 'not_started'; // デフォルトは未着手
+        if (status !== 'completed') {
+            relevantNodeIndices.add(i);
         }
-    });
-    
-    // ステータスが設定されているノードを追加
-    Object.keys(nodeStatuses).forEach(nodeIndex => {
-        relevantNodeIndices.add(parseInt(nodeIndex));
-    });
+    }
     
     // ノードが存在しない場合のメッセージ
     if (relevantNodeIndices.size === 0) {
@@ -2597,10 +2593,41 @@ function renderAllNodesTasks() {
         return;
     }
     
-    // ノードインデックス順にソート
-    const sortedIndices = Array.from(relevantNodeIndices).sort((a, b) => a - b);
+    // 階層を考慮した表示順序に変更
+    const allIndices = Array.from(relevantNodeIndices);
     
-    sortedIndices.forEach(nodeIndex => {
+    // 階層を考慮して表示順序を決定
+    const displayOrder = [];
+    
+    // すべての子ノードのインデックスを取得
+    const childIndices = new Set();
+    nodeHierarchy.forEach(hierarchy => {
+        hierarchy.children.forEach(childIndex => {
+            childIndices.add(childIndex);
+        });
+    });
+    
+    // 親ノードと独立ノードを順番に処理
+    for (let i = 0; i < nodes.length; i++) {
+        if (allIndices.includes(i) && !childIndices.has(i)) {
+            displayOrder.push(i);
+            
+            // この親ノードの子ノードがあれば続けて追加
+            const hierarchy = nodeHierarchy.find(h => h.parent === i);
+            if (hierarchy) {
+                hierarchy.children
+                    .filter(childIndex => allIndices.includes(childIndex))
+                    .sort((a, b) => a - b)
+                    .forEach(childIndex => {
+                        displayOrder.push(childIndex);
+                    });
+            }
+        }
+    }
+    
+    console.log('Display order:', displayOrder); // デバッグ用
+    
+    displayOrder.forEach(nodeIndex => {
         if (nodeIndex >= 0 && nodeIndex < nodes.length) {
             renderNodeTaskGroup(nodeIndex, allTasksContainer);
         }
@@ -2647,7 +2674,9 @@ function renderNodeTaskGroup(nodeIndex, container) {
     
     // 展開/折りたたみアイコン
     const expandIcon = document.createElement('span');
-    const isCollapsed = nodeCardCollapsed[nodeIndex] || false;
+    // 全ノード表示では常にデフォルトで折り畳み状態にする
+    nodeCardCollapsed[nodeIndex] = true;
+    const isCollapsed = nodeCardCollapsed[nodeIndex];
     expandIcon.textContent = isCollapsed ? '▶' : '▼';
     expandIcon.style.cssText = `
         font-size: 14px;
@@ -2724,8 +2753,8 @@ function renderNodeTaskGroup(nodeIndex, container) {
         const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
         
         
-        // 個別タスク
-        tasks.forEach(task => {
+        // 個別タスク（完了タスクは非表示）
+        tasks.filter(task => !task.completed).forEach(task => {
             const taskItem = document.createElement('div');
             taskItem.style.cssText = `
                 display: flex;
@@ -2826,7 +2855,7 @@ function renderNodeTaskGroup(nodeIndex, container) {
 
 // ノードカードの展開/折りたたみ切り替え
 function toggleNodeCard(nodeIndex, expandIcon, tasksList, addTaskForm) {
-    const isCurrentlyCollapsed = nodeCardCollapsed[nodeIndex] || false;
+    const isCurrentlyCollapsed = nodeCardCollapsed[nodeIndex];
     
     if (isCurrentlyCollapsed) {
         // 展開する
