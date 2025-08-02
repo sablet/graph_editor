@@ -2642,6 +2642,7 @@ function renderNodeTaskGroup(nodeIndex, container) {
     
     const nodeGroup = document.createElement('div');
     nodeGroup.className = 'node-task-group';
+    nodeGroup.setAttribute('data-node-group', nodeIndex);
     nodeGroup.style.cssText = `
         border: 1px solid #e5e7eb;
         border-radius: 8px;
@@ -2737,6 +2738,7 @@ function renderNodeTaskGroup(nodeIndex, container) {
     
     // タスクリスト
     const tasksList = document.createElement('div');
+    tasksList.className = 'tasks-list';
     tasksList.style.cssText = `
         padding: 16px;
     `;
@@ -2755,66 +2757,7 @@ function renderNodeTaskGroup(nodeIndex, container) {
         
         // 個別タスク（完了タスクは非表示）
         tasks.filter(task => !task.completed).forEach(task => {
-            const taskItem = document.createElement('div');
-            taskItem.style.cssText = `
-                display: flex;
-                align-items: center;
-                padding: 8px 0;
-                border-bottom: 1px solid #f3f4f6;
-                gap: 8px;
-            `;
-            
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = task.completed;
-            checkbox.onchange = () => {
-                toggleTaskCompletion(nodeIndex, task.id);
-                renderAllNodesTasks(); // 全体を再描画
-            };
-            
-            const taskText = document.createElement('span');
-            taskText.style.cssText = `
-                flex: 1;
-                ${task.completed ? 'text-decoration: line-through; color: #6b7280;' : ''}
-            `;
-            taskText.textContent = task.text;
-            
-            const editButton = document.createElement('button');
-            editButton.style.cssText = `
-                background: none;
-                border: none;
-                color: #6b7280;
-                cursor: pointer;
-                padding: 4px;
-                border-radius: 4px;
-                font-size: 12px;
-            `;
-            editButton.textContent = '✏️';
-            editButton.onclick = () => editTaskInAllView(nodeIndex, task.id, taskText);
-            
-            const deleteButton = document.createElement('button');
-            deleteButton.style.cssText = `
-                background: none;
-                border: none;
-                color: #dc2626;
-                cursor: pointer;
-                padding: 4px;
-                border-radius: 4px;
-                font-size: 12px;
-            `;
-            deleteButton.textContent = '🗑️';
-            deleteButton.onclick = () => {
-                if (confirm('このタスクを削除しますか？')) {
-                    deleteTask(nodeIndex, task.id);
-                    renderAllNodesTasks(); // 全体を再描画
-                }
-            };
-            
-            taskItem.appendChild(checkbox);
-            taskItem.appendChild(taskText);
-            taskItem.appendChild(editButton);
-            taskItem.appendChild(deleteButton);
-            
+            const taskItem = createTaskItemElement(nodeIndex, task);
             tasksList.appendChild(taskItem);
         });
     }
@@ -2882,9 +2825,85 @@ function addTaskToNodeFromAll(nodeIndex) {
     const taskId = addTaskToNode(nodeIndex, taskText);
     if (taskId) {
         input.value = '';
-        renderAllNodesTasks(); // 全体を再描画
+        updateNodeTasksOnly(nodeIndex); // 該当ノードのタスクリストのみ更新
         updateTaskNodeSelect(); // 個別ノード選択も更新
     }
+}
+
+// 特定ノードのタスクリストのみを更新（折り畳み状態を保持）
+function updateNodeTasksOnly(nodeIndex) {
+    const nodeGroup = document.querySelector(`[data-node-group="${nodeIndex}"]`);
+    if (!nodeGroup) return;
+    
+    // 現在の折り畳み状態を保存
+    const currentCollapsedState = nodeCardCollapsed[nodeIndex];
+    
+    // タスクリスト部分のみを再構築
+    const tasksList = nodeGroup.querySelector('.tasks-list');
+    if (tasksList) {
+        // タスクリストを再生成
+        const tasks = getNodeTasks(nodeIndex);
+        tasksList.innerHTML = '';
+        
+        if (tasks.length === 0) {
+            tasksList.innerHTML = '<div style="padding: 16px; color: #9ca3af; text-align: center; font-style: italic;">タスクがありません</div>';
+        } else {
+            tasks.forEach(task => {
+                const taskItem = createTaskItemElement(nodeIndex, task);
+                tasksList.appendChild(taskItem);
+            });
+        }
+        
+        // 折り畳み状態を復元
+        nodeCardCollapsed[nodeIndex] = currentCollapsedState;
+        const expandIcon = nodeGroup.querySelector('.expand-icon');
+        const addTaskForm = nodeGroup.querySelector('[style*="border-top"]');
+        
+        if (currentCollapsedState) {
+            tasksList.style.display = 'none';
+            if (addTaskForm) addTaskForm.style.display = 'none';
+            if (expandIcon) expandIcon.textContent = '▶';
+        } else {
+            tasksList.style.display = 'block';
+            if (addTaskForm) addTaskForm.style.display = 'block';
+            if (expandIcon) expandIcon.textContent = '▼';
+        }
+    }
+    
+    // データの永続化
+    saveDataToStorage();
+}
+
+// タスクアイテム要素を作成
+function createTaskItemElement(nodeIndex, task) {
+    const taskItem = document.createElement('div');
+    taskItem.className = 'task-item';
+    taskItem.innerHTML = `
+        <input type="checkbox" 
+            class="task-checkbox" 
+            ${task.completed ? 'checked' : ''} 
+            onchange="toggleTaskCompletion(${nodeIndex}, '${task.id}')"
+            aria-label="タスク完了状態">
+        <span class="task-text ${task.completed ? 'completed' : ''}" 
+            id="task-text-${task.id}">${task.text}</span>
+        <div class="task-menu">
+            <button class="task-menu-button" 
+                onclick="toggleTaskMenu('${task.id}')" 
+                aria-label="タスクメニューを開く"
+                aria-expanded="false"
+                aria-haspopup="menu">⋯</button>
+            <div class="task-menu-dropdown" 
+                id="menu-${task.id}" 
+                style="display: none;"
+                role="menu"
+                aria-hidden="true">
+                <button onclick="editTask(${nodeIndex}, '${task.id}')" role="menuitem">✏️ 編集</button>
+                <button onclick="deleteTask(${nodeIndex}, '${task.id}')" role="menuitem">🗑️ 削除</button>
+            </div>
+        </div>
+    `;
+    
+    return taskItem;
 }
 
 // 全ノード表示でのタスク編集
@@ -2910,7 +2929,7 @@ function editTaskInAllView(nodeIndex, taskId, taskTextElement) {
         const newText = input.value.trim();
         if (newText && newText !== currentText) {
             updateTaskText(nodeIndex, taskId, newText);
-            renderAllNodesTasks(); // 全体を再描画
+            updateNodeTasksOnly(nodeIndex); // 該当ノードのみ更新
         } else {
             taskTextElement.textContent = currentText;
             taskTextElement.style.display = '';
