@@ -127,6 +127,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // タスク機能初期化
     initializeTaskSystem();
     
+    // メモ機能初期化
+    if (typeof initializeMemoFeatures === 'function') {
+        initializeMemoFeatures();
+    }
+    
     // プロジェクト管理UI初期化
     initializeProjectManagement();
     

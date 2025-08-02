@@ -993,6 +993,64 @@
             cursor: pointer;
             border-radius: 4px;
         }
+        
+        /* メモ機能スタイル */
+        .memo-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        
+        .memo-content {
+            font-size: 13px;
+            line-height: 1.4;
+            color: #374151;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-bottom: 6px;
+        }
+        
+        .memo-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: #6b7280;
+        }
+        
+        .memo-timestamp {
+            flex: 1;
+        }
+        
+        .memo-actions {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .memo-delete-btn {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 2px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        
+        .memo-delete-btn:hover {
+            background: #b91c1c;
+        }
+        
+        .memo-empty {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 13px;
+            padding: 20px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -1198,6 +1256,29 @@
                                 <button class="add-task-button" onclick="addNewTask()">追加</button>
                             </div>
                         </div>
+                        
+                        <!-- メモ機能セクション -->
+                        <div class="memo-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                            <h4 style="margin: 0 0 15px 0; color: #374151; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                                📝 メモ
+                            </h4>
+                            
+                            <div class="memo-list" id="memo-list" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px;">
+                                <!-- メモ一覧がここに表示される -->
+                            </div>
+                            
+                            <div class="add-memo-form">
+                                <div class="add-task-input-row">
+                                    <textarea 
+                                        id="new-memo-input" 
+                                        class="add-task-input" 
+                                        placeholder="メモを入力... (Ctrl+Enterで追加)"
+                                        rows="2"
+                                        style="resize: vertical; min-height: 40px;"></textarea>
+                                    <button class="add-task-button" onclick="addNewMemo()">追加</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -1262,6 +1343,7 @@
     <script src="dataManager.js"></script>
     <script src="taskManager.js"></script>
     <script src="graphManager.js"></script>
+    <script src="memoManager.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

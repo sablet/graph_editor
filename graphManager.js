@@ -207,6 +207,9 @@ function deleteNode(index) {
         // ノードカード状態のクリーンアップ
         cleanupNodeCardStateAfterDeletion(index);
         
+        // チャット履歴のクリーンアップ
+        cleanupChatHistoryAfterNodeDeletion(index);
+        
         // UI更新
         renderNodes();
         renderSelects();

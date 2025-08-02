@@ -217,6 +217,10 @@ function showSelectedNodeTasks() {
     
     if (isNaN(nodeIndex)) {
         hideTaskList();
+        // メモセクションも非表示
+        if (typeof hideMemoSection === 'function') {
+            hideMemoSection();
+        }
         return;
     }
     
@@ -224,6 +228,11 @@ function showSelectedNodeTasks() {
     showTaskList();
     renderSelectedNodeInfo(nodeIndex);
     renderTaskList(nodeIndex);
+    
+    // メモも表示
+    if (typeof showNodeMemos === 'function') {
+        showNodeMemos(nodeIndex);
+    }
 }
 
 /**
