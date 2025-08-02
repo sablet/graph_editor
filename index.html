@@ -843,15 +843,31 @@
 
         <!-- データ管理セクション -->
         <div class="data-management-section" style="background: #f3f4f6; border-bottom: 1px solid #e5e7eb; padding: 12px 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; gap: 20px;">
+                <!-- プロジェクト管理セクション -->
                 <div style="display: flex; align-items: center; gap: 16px;">
+                    <span style="font-weight: 600; color: #374151; font-size: 14px;">📁 プロジェクト</span>
+                    <select id="project-selector" style="padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; background: white; min-width: 150px;">
+                        <option value="">プロジェクトを選択...</option>
+                    </select>
+                    <div style="display: flex; gap: 6px;">
+                        <button id="create-project-btn" style="background: #059669; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;" title="新しいプロジェクトを作成">新規</button>
+                        <button id="update-project-btn" style="background: #3b82f6; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;" title="プロジェクト名・説明を更新">更新</button>
+                        <button id="delete-project-btn" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;" title="プロジェクトを削除">削除</button>
+                    </div>
+                </div>
+                
+                <!-- データ管理セクション -->
+                <div style="display: none; align-items: center; gap: 16px;">
                     <span style="font-weight: 600; color: #374151; font-size: 14px;">💾 データ管理</span>
                     <div style="display: flex; gap: 8px;">
                         <button onclick="saveToLocalStorage()" style="background: #059669; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">保存</button>
                         <button onclick="resetToInitialData()" style="background: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;" title="全データを初期状態にリセット">リセット</button>
                     </div>
                 </div>
-                <div style="display: flex; gap: 8px;">
+                
+                <!-- インポート・エクスポートセクション -->
+                <div style="display: none; gap: 8px;">
                     <button onclick="downloadExportData()" style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">エクスポート</button>
                     <input type="file" id="import-file" accept=".json" style="display: none;" onchange="handleFileImport(event)">
                     <button onclick="document.getElementById('import-file').click()" style="background: #f59e0b; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">インポート</button>

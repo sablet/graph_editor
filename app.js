@@ -56,6 +56,10 @@ let nodeStatuses = {};
 // ノードカード折りたたみ状態管理
 let nodeCardCollapsed = {};
 
+// プロジェクト管理データ
+let projects = [];
+let currentProjectId = null;
+
 // Mermaidの設定
 mermaid.initialize({ 
     startOnLoad: false,
@@ -68,12 +72,23 @@ mermaid.initialize({
 
 // 初期化
 document.addEventListener('DOMContentLoaded', function() {
-    // LocalStorageからデータを読み込み
-    const loaded = loadFromLocalStorage();
+    // プロジェクト管理の初期化
+    loadProjectsFromStorage();
     
-    // 初回訪問の場合、初期データを保存
-    if (!loaded) {
-        saveToLocalStorage();
+    // 古いLocalStorageデータのマイグレーション処理を先に行う
+    const oldDataLoaded = loadFromLocalStorage();
+    if (oldDataLoaded && projects.length === 1 && projects[0].name === 'デフォルトプロジェクト') {
+        // 既存データを現在のプロジェクトに統合
+        saveCurrentProjectData();
+        saveProjectsToStorage();
+    } else {
+        // プロジェクトがある場合は現在のプロジェクトを読み込み
+        if (currentProjectId) {
+            const currentProject = getCurrentProject();
+            if (currentProject) {
+                loadProjectData(currentProject);
+            }
+        }
     }
     
     renderNodes();
@@ -92,6 +107,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // タスク機能初期化
     initializeTaskSystem();
+    
+    // プロジェクト管理UI初期化
+    initializeProjectManagement();
     
     // Ctrl+Enterキーでシングルノード追加
     document.getElementById('node-input').addEventListener('keydown', function(e) {
@@ -1357,6 +1375,334 @@ function fitToFullscreenContainer() {
     }
 }
 
+// プロジェクト管理機能
+
+// プロジェクトのデフォルト構造
+function createDefaultProject(name = '新しいプロジェクト', description = '', useInitialData = false) {
+    return {
+        id: generateProjectId(),
+        name: name,
+        description: description,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        data: {
+            nodes: useInitialData ? [...initialNodes] : [],
+            relations: [],
+            nodeHierarchy: [],
+            nodeTasks: {},
+            nodeStatuses: {},
+            nodeCardCollapsed: {}
+        }
+    };
+}
+
+// プロジェクトID生成
+function generateProjectId() {
+    return 'project_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// プロジェクト一覧取得
+function getProjects() {
+    return projects;
+}
+
+// 現在のプロジェクト取得
+function getCurrentProject() {
+    return projects.find(p => p.id === currentProjectId);
+}
+
+// プロジェクト作成
+function createProject(name, description = '') {
+    const newProject = createDefaultProject(name, description, false); // 空データで作成
+    projects.push(newProject);
+    saveProjectsToStorage();
+    return newProject;
+}
+
+// プロジェクト更新
+function updateProject(projectId, updates) {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+        Object.assign(project, updates);
+        project.updatedAt = new Date().toISOString();
+        saveProjectsToStorage();
+        return project;
+    }
+    return null;
+}
+
+// プロジェクト削除
+function deleteProject(projectId) {
+    const index = projects.findIndex(p => p.id === projectId);
+    if (index !== -1) {
+        projects.splice(index, 1);
+        
+        // 削除したプロジェクトが現在選択中の場合
+        if (currentProjectId === projectId) {
+            if (projects.length > 0) {
+                switchToProject(projects[0].id);
+            } else {
+                // プロジェクトが全部削除された場合、新規プロジェクトを作成
+                const defaultProject = createProject('デフォルトプロジェクト');
+                switchToProject(defaultProject.id);
+            }
+        }
+        
+        saveProjectsToStorage();
+        return true;
+    }
+    return false;
+}
+
+// プロジェクト切り替え
+function switchToProject(projectId) {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return false;
+    
+    // 現在のプロジェクトのデータを保存
+    if (currentProjectId && currentProjectId !== projectId) {
+        saveCurrentProjectData();
+    }
+    
+    // 新しいプロジェクトのデータを読み込み
+    currentProjectId = projectId;
+    loadProjectData(project);
+    
+    // UI更新
+    updateProjectUI();
+    saveCurrentProjectIdToStorage();
+    
+    return true;
+}
+
+// 現在のプロジェクトデータを保存
+function saveCurrentProjectData() {
+    const currentProject = getCurrentProject();
+    if (currentProject) {
+        currentProject.data = {
+            nodes: [...nodes],
+            relations: [...relations],
+            nodeHierarchy: [...nodeHierarchy],
+            nodeTasks: {...nodeTasks},
+            nodeStatuses: {...nodeStatuses},
+            nodeCardCollapsed: {...nodeCardCollapsed}
+        };
+        currentProject.updatedAt = new Date().toISOString();
+    }
+}
+
+// プロジェクトデータを読み込み
+function loadProjectData(project) {
+    nodes = [...project.data.nodes];
+    relations = [...project.data.relations];
+    nodeHierarchy = [...project.data.nodeHierarchy];
+    nodeTasks = {...project.data.nodeTasks};
+    nodeStatuses = {...project.data.nodeStatuses};
+    nodeCardCollapsed = {...project.data.nodeCardCollapsed};
+}
+
+// プロジェクト関連のLocalStorage操作
+function saveProjectsToStorage() {
+    try {
+        localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
+        return true;
+    } catch (e) {
+        console.error('Failed to save projects to localStorage:', e);
+        return false;
+    }
+}
+
+function saveCurrentProjectIdToStorage() {
+    try {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_PROJECT_ID, currentProjectId);
+        return true;
+    } catch (e) {
+        console.error('Failed to save current project ID to localStorage:', e);
+        return false;
+    }
+}
+
+function loadProjectsFromStorage() {
+    try {
+        const savedProjects = localStorage.getItem(STORAGE_KEYS.PROJECTS);
+        const savedCurrentProjectId = localStorage.getItem(STORAGE_KEYS.CURRENT_PROJECT_ID);
+        
+        if (savedProjects) {
+            projects = JSON.parse(savedProjects);
+        } else {
+            // 初回訪問時、デフォルトプロジェクトを作成（初期データ付き）
+            const defaultProject = createDefaultProject('デフォルトプロジェクト', '初期プロジェクト', true);
+            projects = [defaultProject];
+        }
+        
+        // 現在のプロジェクトIDを復元
+        if (savedCurrentProjectId && projects.find(p => p.id === savedCurrentProjectId)) {
+            currentProjectId = savedCurrentProjectId;
+        } else {
+            // プロジェクトが見つからない場合、最初のプロジェクトを選択
+            currentProjectId = projects.length > 0 ? projects[0].id : null;
+        }
+        
+        return true;
+    } catch (e) {
+        console.error('Failed to load projects from localStorage:', e);
+        return false;
+    }
+}
+
+// UI更新関数
+function updateProjectUI() {
+    renderNodes();
+    renderSelects();
+    renderHierarchySelects();
+    renderRelations();
+    renderHierarchy();
+    updateUILabels();
+    generateMermaidCode();
+    updateTaskNodeSelect();
+    renderAllNodesTasks();
+    updateProjectSelector();
+}
+
+// プロジェクトセレクター更新
+function updateProjectSelector() {
+    const selector = document.getElementById('project-selector');
+    if (!selector) return;
+    
+    selector.innerHTML = '';
+    
+    projects.forEach(project => {
+        const option = document.createElement('option');
+        option.value = project.id;
+        option.textContent = project.name;
+        option.selected = project.id === currentProjectId;
+        selector.appendChild(option);
+    });
+}
+
+// プロジェクト管理UI関数
+
+// プロジェクト管理の初期化
+function initializeProjectManagement() {
+    updateProjectSelector();
+    setupProjectEventListeners();
+}
+
+// プロジェクト関連のイベントリスナー設定
+function setupProjectEventListeners() {
+    // プロジェクト選択
+    const selector = document.getElementById('project-selector');
+    if (selector) {
+        selector.addEventListener('change', function(e) {
+            const projectId = e.target.value;
+            if (projectId && projectId !== currentProjectId) {
+                switchToProject(projectId);
+            }
+        });
+    }
+    
+    // プロジェクト作成ボタン
+    const createBtn = document.getElementById('create-project-btn');
+    if (createBtn) {
+        createBtn.addEventListener('click', showCreateProjectModal);
+    }
+    
+    // プロジェクト更新ボタン
+    const updateBtn = document.getElementById('update-project-btn');
+    if (updateBtn) {
+        updateBtn.addEventListener('click', updateCurrentProject);
+    }
+    
+    // プロジェクト削除ボタン
+    const deleteBtn = document.getElementById('delete-project-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', deleteCurrentProject);
+    }
+}
+
+// プロジェクト作成モーダル表示
+function showCreateProjectModal() {
+    const name = prompt('プロジェクト名を入力してください:', '');
+    if (name && name.trim()) {
+        const description = prompt('プロジェクトの説明を入力してください（省略可）:', '') || '';
+        const newProject = createProject(name.trim(), description.trim());
+        switchToProject(newProject.id);
+        alert(`プロジェクト「${name}」が作成されました。`);
+    }
+}
+
+// 現在のプロジェクト更新
+function updateCurrentProject() {
+    const currentProject = getCurrentProject();
+    if (!currentProject) {
+        alert('プロジェクトが選択されていません。');
+        return;
+    }
+    
+    const newName = prompt('新しいプロジェクト名を入力してください:', currentProject.name);
+    if (!newName || newName.trim() === currentProject.name) {
+        return; // キャンセルまたは変更なし
+    }
+    
+    const newDescription = prompt('新しい説明を入力してください（省略可）:', currentProject.description || '');
+    
+    updateProject(currentProject.id, { 
+        name: newName.trim(),
+        description: newDescription.trim()
+    });
+    updateProjectSelector();
+    alert(`プロジェクト「${newName.trim()}」を更新しました。`);
+}
+
+// 現在のプロジェクト削除
+function deleteCurrentProject() {
+    const currentProject = getCurrentProject();
+    if (!currentProject) return;
+    
+    if (projects.length === 1) {
+        alert('最後のプロジェクトは削除できません。');
+        return;
+    }
+    
+    const confirmDelete = confirm(`プロジェクト「${currentProject.name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`);
+    if (confirmDelete) {
+        const projectName = currentProject.name;
+        deleteProject(currentProject.id);
+        updateProjectSelector();
+        alert(`プロジェクト「${projectName}」を削除しました。`);
+    }
+}
+
+// プロジェクト複製
+function duplicateCurrentProject() {
+    const currentProject = getCurrentProject();
+    if (!currentProject) return;
+    
+    const newName = prompt('複製するプロジェクトの名前を入力してください:', `${currentProject.name} のコピー`);
+    if (newName && newName.trim()) {
+        const copyData = confirm('現在のプロジェクトのデータをコピーしますか？\n\n「OK」: データをコピー\n「キャンセル」: 空のプロジェクト');
+        
+        // 現在のデータを保存してから複製
+        saveCurrentProjectData();
+        
+        const duplicatedProject = createDefaultProject(newName.trim(), `${currentProject.description} (複製)`, false);
+        
+        if (copyData) {
+            duplicatedProject.data = JSON.parse(JSON.stringify(currentProject.data)); // ディープコピー
+        }
+        
+        // プロジェクト配列を更新
+        const index = projects.findIndex(p => p.id === duplicatedProject.id);
+        if (index !== -1) {
+            projects[index] = duplicatedProject;
+        }
+        
+        saveProjectsToStorage();
+        updateProjectSelector();
+        alert(`プロジェクト「${newName.trim()}」が作成されました。`);
+    }
+}
+
 // LocalStorage データ永続化機能
 
 // LocalStorageキー定義
@@ -1367,7 +1713,10 @@ const STORAGE_KEYS = {
     NODE_TASKS: 'graphEditor_nodeTasks',
     NODE_STATUSES: 'graphEditor_nodeStatuses',
     NODE_CARD_COLLAPSED: 'graphEditor_nodeCardCollapsed',
-    DATA_VERSION: 'graphEditor_dataVersion'
+    DATA_VERSION: 'graphEditor_dataVersion',
+    // プロジェクト管理
+    PROJECTS: 'graphEditor_projects',
+    CURRENT_PROJECT_ID: 'graphEditor_currentProjectId'
 };
 
 // データバージョン管理
@@ -1394,16 +1743,21 @@ function saveToLocalStorage() {
     }
     
     try {
-        // データバージョンを保存
-        localStorage.setItem(STORAGE_KEYS.DATA_VERSION, CURRENT_DATA_VERSION);
-        
-        // 各データを個別に保存
-        localStorage.setItem(STORAGE_KEYS.NODES, JSON.stringify(nodes));
-        localStorage.setItem(STORAGE_KEYS.RELATIONS, JSON.stringify(relations));
-        localStorage.setItem(STORAGE_KEYS.NODE_HIERARCHY, JSON.stringify(nodeHierarchy));
-        localStorage.setItem(STORAGE_KEYS.NODE_TASKS, JSON.stringify(nodeTasks));
-        localStorage.setItem(STORAGE_KEYS.NODE_STATUSES, JSON.stringify(nodeStatuses));
-        localStorage.setItem(STORAGE_KEYS.NODE_CARD_COLLAPSED, JSON.stringify(nodeCardCollapsed));
+        // プロジェクト管理対応: 現在のプロジェクトデータを保存
+        if (currentProjectId) {
+            saveCurrentProjectData();
+            saveProjectsToStorage();
+            saveCurrentProjectIdToStorage();
+        } else {
+            // 旧形式のデータ保存（後方互換性のため）
+            localStorage.setItem(STORAGE_KEYS.DATA_VERSION, CURRENT_DATA_VERSION);
+            localStorage.setItem(STORAGE_KEYS.NODES, JSON.stringify(nodes));
+            localStorage.setItem(STORAGE_KEYS.RELATIONS, JSON.stringify(relations));
+            localStorage.setItem(STORAGE_KEYS.NODE_HIERARCHY, JSON.stringify(nodeHierarchy));
+            localStorage.setItem(STORAGE_KEYS.NODE_TASKS, JSON.stringify(nodeTasks));
+            localStorage.setItem(STORAGE_KEYS.NODE_STATUSES, JSON.stringify(nodeStatuses));
+            localStorage.setItem(STORAGE_KEYS.NODE_CARD_COLLAPSED, JSON.stringify(nodeCardCollapsed));
+        }
         
         console.log('Data saved to localStorage successfully');
         return true;
@@ -1543,10 +1897,21 @@ function resetToInitialData() {
 
 // エクスポート/インポート機能
 function exportData() {
+    // 現在のプロジェクトデータを保存
+    if (currentProjectId) {
+        saveCurrentProjectData();
+    }
+    
     const exportData = {
         version: CURRENT_DATA_VERSION,
         timestamp: new Date().toISOString(),
+        exportType: 'projects', // プロジェクト形式
         data: {
+            projects: projects,
+            currentProjectId: currentProjectId
+        },
+        // 後方互換性のための旧形式データ
+        legacyData: {
             nodes,
             relations,
             nodeHierarchy,
@@ -1568,32 +1933,67 @@ function importData(jsonData) {
             throw new Error(`Data version mismatch. Expected ${CURRENT_DATA_VERSION}, got ${importedData.version}`);
         }
         
-        // データの検証
-        if (!importedData.data || !Array.isArray(importedData.data.nodes)) {
-            throw new Error('Invalid data format');
+        // プロジェクト形式のデータか確認
+        if (importedData.exportType === 'projects' && importedData.data && importedData.data.projects) {
+            // プロジェクト形式のインポート
+            projects = importedData.data.projects;
+            
+            // プロジェクトIDが存在するか確認
+            const targetProjectId = importedData.data.currentProjectId;
+            if (targetProjectId && projects.find(p => p.id === targetProjectId)) {
+                currentProjectId = targetProjectId;
+            } else {
+                currentProjectId = projects.length > 0 ? projects[0].id : null;
+            }
+            
+            // 現在のプロジェクトのデータを読み込み
+            if (currentProjectId) {
+                const currentProject = getCurrentProject();
+                if (currentProject) {
+                    loadProjectData(currentProject);
+                }
+            }
+            
+            // プロジェクトデータを保存
+            saveProjectsToStorage();
+            saveCurrentProjectIdToStorage();
+            
+        } else {
+            // 旧形式または単一プロジェクトデータのインポート
+            let dataToImport;
+            
+            if (importedData.data && Array.isArray(importedData.data.nodes)) {
+                // 新形式の単一プロジェクトデータ
+                dataToImport = importedData.data;
+            } else if (importedData.legacyData && Array.isArray(importedData.legacyData.nodes)) {
+                // レガシーデータ
+                dataToImport = importedData.legacyData;
+            } else {
+                throw new Error('Invalid data format');
+            }
+            
+            // 新しいプロジェクトとして追加
+            const importProjectName = `インポート ${new Date().toLocaleDateString()}`;
+            const newProject = createProject(importProjectName, 'インポートされたプロジェクト');
+            
+            // データを復元
+            nodes = dataToImport.nodes || [...initialNodes];
+            relations = dataToImport.relations || [];
+            nodeHierarchy = dataToImport.nodeHierarchy || [];
+            nodeTasks = dataToImport.nodeTasks || {};
+            nodeStatuses = dataToImport.nodeStatuses || {};
+            nodeCardCollapsed = dataToImport.nodeCardCollapsed || {};
+            
+            // プロジェクトに切り替え
+            switchToProject(newProject.id);
         }
-        
-        // データを復元
-        nodes = importedData.data.nodes || [...initialNodes];
-        relations = importedData.data.relations || [];
-        nodeHierarchy = importedData.data.nodeHierarchy || [];
-        nodeTasks = importedData.data.nodeTasks || {};
-        nodeStatuses = importedData.data.nodeStatuses || {};
-        nodeCardCollapsed = importedData.data.nodeCardCollapsed || {};
         selectedNodeIndex = null;
         
         // LocalStorageに保存
         saveToLocalStorage();
         
-        // UIを更新
-        renderNodes();
-        renderSelects();
-        renderHierarchySelects();
-        renderRelations();
-        renderHierarchy();
-        updateTaskNodeSelect();
-        renderAllNodesTasks();
-        generateMermaidCode();
+        // UI全体を更新
+        updateProjectUI();
         
         return true;
     } catch (e) {
