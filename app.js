@@ -121,8 +121,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // プレビューパネルタブ機能初期化
     setupPreviewTabs();
     
+    // 保存されたタブ状態を復元
+    restoreLastActiveTab();
+    
     // タスク機能初期化
     initializeTaskSystem();
+    
+    // メモ機能初期化
+    if (typeof initializeMemoFeatures === 'function') {
+        initializeMemoFeatures();
+    }
     
     // プロジェクト管理UI初期化
     initializeProjectManagement();
@@ -725,6 +733,43 @@ function fitToFullscreenContainer() {
 
 // ===== モバイル・タブ機能 =====
 
+function restoreLastActiveTab() {
+    const lastActiveTab = getLastActiveTab();
+    
+    if (!lastActiveTab) {
+        // デフォルトタブに設定
+        return;
+    }
+    
+    if (lastActiveTab.startsWith('preview:')) {
+        // プレビューパネル内のタブ
+        const previewTab = lastActiveTab.replace('preview:', '');
+        switchPreviewTab(previewTab);
+    } else {
+        // メインタブ（モバイル用）
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const panels = document.querySelectorAll('[data-panel]');
+        
+        // タブボタンをアクティブに
+        tabButtons.forEach(btn => {
+            if (btn.dataset.tab === lastActiveTab) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+        
+        // パネルを表示
+        panels.forEach(panel => {
+            if (panel.dataset.panel === lastActiveTab) {
+                panel.classList.add('active');
+            } else {
+                panel.classList.remove('active');
+            }
+        });
+    }
+}
+
 function setupMobileTabs() {
     const tabButtons = document.querySelectorAll('.tab-button');
     const panels = document.querySelectorAll('[data-panel]');
@@ -745,6 +790,9 @@ function setupMobileTabs() {
                     panel.classList.remove('active');
                 }
             });
+            
+            // タブ状態を保存
+            saveActiveTab(targetTab);
         });
     });
 }
@@ -773,6 +821,9 @@ function switchPreviewTab(targetTab) {
             btn.classList.remove('active');
         }
     });
+    
+    // プレビュータブの状態を保存 (preview: プレフィックス付き)
+    saveActiveTab(`preview:${targetTab}`);
     
     // セクションの表示を更新
     previewSections.forEach(section => {
@@ -803,6 +854,17 @@ function initializeTaskSystem() {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 addNewTask();
+            }
+        });
+    }
+    
+    // グローバルノード入力のEnterキー処理
+    const globalNewNodeInput = document.getElementById('global-new-node-input');
+    if (globalNewNodeInput) {
+        globalNewNodeInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addGlobalNewNode();
             }
         });
     }

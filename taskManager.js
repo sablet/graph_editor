@@ -217,6 +217,10 @@ function showSelectedNodeTasks() {
     
     if (isNaN(nodeIndex)) {
         hideTaskList();
+        // メモセクションも非表示
+        if (typeof hideMemoSection === 'function') {
+            hideMemoSection();
+        }
         return;
     }
     
@@ -224,6 +228,11 @@ function showSelectedNodeTasks() {
     showTaskList();
     renderSelectedNodeInfo(nodeIndex);
     renderTaskList(nodeIndex);
+    
+    // メモも表示
+    if (typeof showNodeMemos === 'function') {
+        showNodeMemos(nodeIndex);
+    }
 }
 
 /**
@@ -329,6 +338,7 @@ function addNewTask() {
     }
 }
 
+
 /**
  * タスクメニューの表示切り替え
  * @param {string} taskId - タスクID
@@ -337,12 +347,14 @@ function toggleTaskMenu(taskId) {
     const menu = document.getElementById(`menu-${taskId}`);
     const button = menu.previousElementSibling;
     
-    // 他のメニューを閉じる
+    // すべてのメニューを閉じる
     closeAllTaskMenus();
+    closeAllNodeMenus();
     
     // 現在のメニューを表示
-    if (menu.style.display === 'none') {
+    if (menu && button && menu.style.display === 'none') {
         menu.style.display = 'block';
+        positionMenu(button, menu);
         button.setAttribute('aria-expanded', 'true');
         menu.setAttribute('aria-hidden', 'false');
     }
@@ -498,6 +510,7 @@ function createNodeTaskCard(nodeIndex, container, depth = 0, isChild = false) {
     `;
     
     const nodeTitle = document.createElement('div');
+    nodeTitle.className = 'node-title';
     nodeTitle.textContent = `${getNodeDisplayNumber(nodeIndex)}. ${nodes[nodeIndex]}`;
     nodeTitle.style.cssText = `
         font-weight: 600;
@@ -505,7 +518,14 @@ function createNodeTaskCard(nodeIndex, container, depth = 0, isChild = false) {
         color: #1f2937;
     `;
     
-    // 右側：ステータスバッジ
+    // 右側：ステータスバッジとノードメニュー
+    const nodeHeaderRight = document.createElement('div');
+    nodeHeaderRight.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    `;
+    
     const statusBadge = document.createElement('div');
     statusBadge.innerHTML = `
         <div onclick="openNodeStatusEditor(${nodeIndex})" 
@@ -517,10 +537,32 @@ function createNodeTaskCard(nodeIndex, container, depth = 0, isChild = false) {
         </div>
     `;
     
+    // ノードメニューコンテナ作成
+    const nodeMenuContainer = document.createElement('div');
+    nodeMenuContainer.className = 'node-menu';
+    nodeMenuContainer.innerHTML = `
+        <button class="node-menu-button" 
+            onclick="event.stopPropagation(); toggleNodeMenu(${nodeIndex})" 
+            aria-label="ノードメニューを開く"
+            aria-expanded="false"
+            aria-haspopup="menu">⋯</button>
+        <div class="node-menu-dropdown" 
+            id="node-menu-${nodeIndex}" 
+            style="display: none;"
+            role="menu"
+            aria-hidden="true">
+            <button onclick="event.stopPropagation(); editNodeInAllView(${nodeIndex})" role="menuitem">✏️ 編集</button>
+            <button onclick="event.stopPropagation(); deleteNodeInAllView(${nodeIndex})" role="menuitem">🗑️ 削除</button>
+        </div>
+    `;
+    
+    nodeHeaderRight.appendChild(statusBadge);
+    nodeHeaderRight.appendChild(nodeMenuContainer);
+    
     nodeHeaderLeft.appendChild(expandIcon);
     nodeHeaderLeft.appendChild(nodeTitle);
     nodeHeader.appendChild(nodeHeaderLeft);
-    nodeHeader.appendChild(statusBadge);
+    nodeHeader.appendChild(nodeHeaderRight);
     
     // タスクリスト
     const tasksList = document.createElement('div');
@@ -770,3 +812,210 @@ function editTaskInAllView(nodeIndex, taskId, taskTextElement) {
     // メニューを閉じる
     closeAllTaskMenus();
 }
+
+// ===== ノードメニュー機能 =====
+
+/**
+ * ノードメニューの表示/非表示を切り替え
+ * @param {number} nodeIndex - ノードのインデックス
+ */
+function toggleNodeMenu(nodeIndex) {
+    // すべてのメニューを閉じる
+    closeAllNodeMenus();
+    closeAllTaskMenus();
+    
+    const menu = document.getElementById(`node-menu-${nodeIndex}`);
+    const button = menu?.previousElementSibling;
+    
+    if (menu && button) {
+        if (menu.style.display === 'none' || !menu.style.display) {
+            // メニューを表示し、位置を計算
+            menu.style.display = 'block';
+            positionMenu(button, menu);
+            button.setAttribute('aria-expanded', 'true');
+            menu.setAttribute('aria-hidden', 'false');
+        } else {
+            menu.style.display = 'none';
+            button.setAttribute('aria-expanded', 'false');
+            menu.setAttribute('aria-hidden', 'true');
+        }
+    }
+}
+
+/**
+ * メニューの位置を計算して設定
+ * @param {HTMLElement} button - ボタン要素
+ * @param {HTMLElement} menu - メニュー要素
+ */
+function positionMenu(button, menu) {
+    const buttonRect = button.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // 基本的にボタンの下、右端揃えで配置
+    let left = buttonRect.right - menuRect.width;
+    let top = buttonRect.bottom + 2;
+    
+    // 画面右端からはみ出る場合は左揃えに
+    if (left < 0) {
+        left = buttonRect.left;
+    }
+    
+    // 画面右端からはみ出る場合は調整
+    if (left + menuRect.width > viewportWidth) {
+        left = viewportWidth - menuRect.width - 10;
+    }
+    
+    // 画面下端からはみ出る場合はボタンの上に表示
+    if (top + menuRect.height > viewportHeight) {
+        top = buttonRect.top - menuRect.height - 2;
+    }
+    
+    // 負の値にならないよう調整
+    left = Math.max(10, left);
+    top = Math.max(10, top);
+    
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+}
+
+/**
+ * すべてのノードメニューを閉じる
+ */
+function closeAllNodeMenus() {
+    document.querySelectorAll('.node-menu-dropdown').forEach(menu => {
+        menu.style.display = 'none';
+        const button = menu.previousElementSibling;
+        if (button) {
+            button.setAttribute('aria-expanded', 'false');
+            menu.setAttribute('aria-hidden', 'true');
+        }
+    });
+}
+
+/**
+ * 全ノード表示でのノード編集
+ * @param {number} nodeIndex - ノードのインデックス
+ */
+function editNodeInAllView(nodeIndex) {
+    if (!nodes[nodeIndex]) return;
+    
+    // ノードタイトル要素を取得
+    const nodeGroup = document.querySelector(`[data-node-group="${nodeIndex}"]`);
+    if (!nodeGroup) return;
+    
+    const nodeTitleElement = nodeGroup.querySelector('.node-title');
+    if (!nodeTitleElement) return;
+    
+    const currentText = nodes[nodeIndex];
+    
+    // 編集用input要素を作成
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentText;
+    input.className = 'node-edit-input';
+    input.style.cssText = `
+        width: 100%;
+        padding: 8px;
+        border: 2px solid #3b82f6;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+        background: white;
+        box-sizing: border-box;
+    `;
+    
+    const saveEdit = () => {
+        const newText = input.value.trim();
+        if (newText && newText !== currentText) {
+            // graphManager.jsのupdateNode関数を使用
+            if (typeof updateNode === 'function') {
+                updateNode(nodeIndex, newText);
+            } else {
+                nodes[nodeIndex] = newText;
+                updateAllUI();
+                saveToLocalStorage();
+            }
+        }
+        
+        // 編集モードを終了
+        input.parentNode.removeChild(input);
+        nodeTitleElement.style.display = '';
+    };
+    
+    const cancelEdit = () => {
+        // 編集モードを終了
+        input.parentNode.removeChild(input);
+        nodeTitleElement.style.display = '';
+    };
+    
+    // イベントリスナー
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+        }
+    });
+    
+    input.addEventListener('blur', saveEdit);
+    
+    // 既存タイトルを隠して入力フィールドを挿入
+    nodeTitleElement.style.display = 'none';
+    nodeTitleElement.parentNode.insertBefore(input, nodeTitleElement.nextSibling);
+    input.focus();
+    input.select();
+    
+    // メニューを閉じる
+    closeAllNodeMenus();
+}
+
+/**
+ * 全ノード表示でのノード削除
+ * @param {number} nodeIndex - ノードのインデックス
+ */
+function deleteNodeInAllView(nodeIndex) {
+    if (!nodes[nodeIndex]) return;
+    
+    const nodeName = nodes[nodeIndex];
+    if (confirm(`ノード「${nodeName}」を削除しますか？\n\nこの操作により以下も削除されます：\n- このノードのタスク\n- このノードを含む関係\n- このノードの階層設定`)) {
+        // graphManager.jsのdeleteNode関数を使用
+        if (typeof deleteNode === 'function') {
+            deleteNode(nodeIndex);
+        } else {
+            // フォールバック処理
+            nodes.splice(nodeIndex, 1);
+            cleanupTasksAfterNodeDeletion(nodeIndex);
+            cleanupNodeStatusAfterDeletion(nodeIndex);
+            cleanupNodeCardStateAfterDeletion(nodeIndex);
+            updateAllUI();
+            saveToLocalStorage();
+        }
+    }
+    
+    // メニューを閉じる
+    closeAllNodeMenus();
+}
+
+// メニューの外側クリック検知（統合版）
+document.addEventListener('click', function(e) {
+    // ノードメニューとタスクメニューの外側クリック検知
+    if (!e.target.closest('.node-menu') && !e.target.closest('.task-menu')) {
+        closeAllNodeMenus();
+        closeAllTaskMenus();
+    }
+    
+    // ノードメニューボタン以外をクリックした場合、ノードメニューを閉じる
+    if (!e.target.closest('.node-menu')) {
+        closeAllNodeMenus();
+    }
+    
+    // タスクメニューボタン以外をクリックした場合、タスクメニューを閉じる  
+    if (!e.target.closest('.task-menu')) {
+        closeAllTaskMenus();
+    }
+}, true); // キャプチャフェーズで実行
