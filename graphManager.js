@@ -69,6 +69,7 @@ function addSingleNode() {
     updateTaskNodeSelect();
     updateUILabels();
     renderAllNodesTasks();
+    updateOverallProgress();
     generateMermaidCode();
     
     // LocalStorageに保存
@@ -153,6 +154,7 @@ function addBulkNodes() {
         updateTaskNodeSelect();
         updateUILabels();
         renderAllNodesTasks();
+        updateOverallProgress();
         generateMermaidCode();
         
         // LocalStorageに保存
