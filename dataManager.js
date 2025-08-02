@@ -3,6 +3,10 @@
  * RDBMS移植時はこのファイルのみ変更すればよい
  */
 
+// デバウンス用変数
+let saveTimeout = null;
+const SAVE_DEBOUNCE_DELAY = 500; // 500ms
+
 // LocalStorageキー定義
 const STORAGE_KEYS = {
     NODES: 'graphEditor_nodes',
@@ -259,9 +263,25 @@ function loadProjectsFromStorage() {
 // ===== 旧形式データ操作機能（後方互換性） =====
 
 /**
- * データをLocalStorageに保存
+ * データをLocalStorageに保存（デバウンス版）
  */
 function saveToLocalStorage() {
+    // 既存のタイマーをクリア
+    if (saveTimeout) {
+        clearTimeout(saveTimeout);
+    }
+    
+    // 新しいタイマーを設定
+    saveTimeout = setTimeout(() => {
+        saveToLocalStorageImmediate();
+        saveTimeout = null;
+    }, SAVE_DEBOUNCE_DELAY);
+}
+
+/**
+ * データをLocalStorageに即座に保存
+ */
+function saveToLocalStorageImmediate() {
     if (!isLocalStorageAvailable()) {
         console.warn('LocalStorage not available, data will not be persisted');
         return false;
@@ -291,6 +311,19 @@ function saveToLocalStorage() {
         console.error('Failed to save to localStorage:', e);
         return false;
     }
+}
+
+/**
+ * 即座に保存を実行（デバウンスをスキップ）
+ */
+function forceSaveToLocalStorage() {
+    // タイマーをクリア
+    if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+    }
+    
+    return saveToLocalStorageImmediate();
 }
 
 /**
@@ -637,7 +670,7 @@ function addChatMessage(nodeIndex, content, type = 'user') {
     
     nodeChatHistory[nodeIndex].push(message);
     
-    // LocalStorageに保存
+    // デバウンス版の保存を使用してパフォーマンスを改善
     saveToLocalStorage();
     
     return message;
@@ -669,7 +702,7 @@ function deleteChatMessage(nodeIndex, messageId) {
     const deleted = nodeChatHistory[nodeIndex].length < originalLength;
     
     if (deleted) {
-        // LocalStorageに保存
+        // デバウンス版の保存を使用してパフォーマンスを改善
         saveToLocalStorage();
     }
     
@@ -685,7 +718,7 @@ function clearNodeChatHistory(nodeIndex) {
     if (nodeChatHistory[nodeIndex]) {
         delete nodeChatHistory[nodeIndex];
         
-        // LocalStorageに保存
+        // デバウンス版の保存を使用してパフォーマンスを改善
         saveToLocalStorage();
         
         return true;
@@ -710,7 +743,7 @@ function updateChatMessage(nodeIndex, messageId, newContent) {
         message.content = newContent.trim();
         message.timestamp = new Date().toISOString(); // 更新時刻を記録
         
-        // LocalStorageに保存
+        // デバウンス版の保存を使用してパフォーマンスを改善
         saveToLocalStorage();
         
         return true;

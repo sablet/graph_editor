@@ -267,7 +267,7 @@ function editMemo(nodeIndex, messageId) {
             <textarea class="memo-edit-textarea" id="edit-textarea-${messageId}">${escapeHtml(originalContent)}</textarea>
             <div class="memo-edit-actions">
                 <button class="memo-edit-button memo-edit-save" onclick="saveMemoEdit(${nodeIndex}, '${messageId}')">保存</button>
-                <button class="memo-edit-button memo-edit-cancel" onclick="cancelMemoEdit(${nodeIndex}, '${messageId}', '${escapeForAttribute(originalContent)}')">キャンセル</button>
+                <button class="memo-edit-button memo-edit-cancel" onclick="cancelMemoEdit(${nodeIndex})">キャンセル</button>
             </div>
         </div>
     `;
@@ -285,7 +285,7 @@ function editMemo(nodeIndex, messageId) {
                 saveMemoEdit(nodeIndex, messageId);
             } else if (e.key === 'Escape') {
                 e.preventDefault();
-                cancelMemoEdit(nodeIndex, messageId, originalContent);
+                cancelMemoEdit(nodeIndex);
             }
         });
     }
@@ -324,9 +324,8 @@ function saveMemoEdit(nodeIndex, messageId) {
  * メモ編集をキャンセル
  * @param {number} nodeIndex - ノードのインデックス
  * @param {string} messageId - メッセージID
- * @param {string} originalContent - 元の内容
  */
-function cancelMemoEdit(nodeIndex, messageId, originalContent) {
+function cancelMemoEdit(nodeIndex) {
     // メモ一覧を再描画して元に戻す
     renderMemoList(nodeIndex);
 }
