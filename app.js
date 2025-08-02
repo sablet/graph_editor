@@ -157,12 +157,24 @@ function addSingleNode() {
         return;
     }
     
+    const newNodeIndex = nodes.length;
     nodes.push(cleanedFirstLine);
+    
+    // 新規ノードに空のタスク配列を初期化
+    if (!nodeTasks[newNodeIndex]) {
+        nodeTasks[newNodeIndex] = [];
+    }
+    
     nodeInput.value = '';
     
     renderNodes();
     renderSelects();
+    renderHierarchySelects();
+    renderRelations();
+    renderHierarchy();
     updateTaskNodeSelect();
+    updateUILabels();
+    renderAllNodesTasks();
     
     // LocalStorageに保存
     saveToLocalStorage();
@@ -219,13 +231,27 @@ function addBulkNodes() {
     
     // 確認ダイアログを表示
     if (confirm(confirmMessage)) {
+        const startIndex = nodes.length;
         nodes.push(...validNodes);
+        
+        // 新規ノードに空のタスク配列を初期化
+        validNodes.forEach((_, index) => {
+            const nodeIndex = startIndex + index;
+            if (!nodeTasks[nodeIndex]) {
+                nodeTasks[nodeIndex] = [];
+            }
+        });
+        
         nodeInput.value = '';
         
         renderNodes();
         renderSelects();
         renderHierarchySelects();
+        renderRelations();
+        renderHierarchy();
         updateTaskNodeSelect();
+        updateUILabels();
+        renderAllNodesTasks();
         
         // LocalStorageに保存
         saveToLocalStorage();
