@@ -14,7 +14,9 @@ const STORAGE_KEYS = {
     DATA_VERSION: 'graphEditor_dataVersion',
     // プロジェクト管理
     PROJECTS: 'graphEditor_projects',
-    CURRENT_PROJECT_ID: 'graphEditor_currentProjectId'
+    CURRENT_PROJECT_ID: 'graphEditor_currentProjectId',
+    // タブ状態管理
+    LAST_ACTIVE_TAB: 'graphEditor_lastActiveTab'
 };
 
 // データバージョン
@@ -543,4 +545,41 @@ function handleFileImport(event) {
     };
     
     reader.readAsText(file);
+}
+
+// ===== タブ状態管理機能 =====
+
+/**
+ * アクティブなタブを保存
+ */
+function saveActiveTab(tabName) {
+    if (!isLocalStorageAvailable()) {
+        console.warn('LocalStorage not available, tab state will not be persisted');
+        return false;
+    }
+    
+    try {
+        localStorage.setItem(STORAGE_KEYS.LAST_ACTIVE_TAB, tabName);
+        console.log(`Active tab saved: ${tabName}`);
+        return true;
+    } catch (e) {
+        console.error('Failed to save active tab to localStorage:', e);
+        return false;
+    }
+}
+
+/**
+ * 保存されたアクティブタブを取得
+ */
+function getLastActiveTab() {
+    if (!isLocalStorageAvailable()) {
+        return null;
+    }
+    
+    try {
+        return localStorage.getItem(STORAGE_KEYS.LAST_ACTIVE_TAB);
+    } catch (e) {
+        console.error('Failed to load active tab from localStorage:', e);
+        return null;
+    }
 }
