@@ -810,6 +810,120 @@
                 gap: 6px;
             }
         }
+        
+        /* cssText置き換え用クラス */
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        
+        .task-edit-input {
+            flex: 1;
+            padding: 4px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .task-edit-input-focused {
+            flex: 1;
+            padding: 4px 8px;
+            border: 1px solid #3b82f6;
+            border-radius: 4px;
+            font-size: 14px;
+            box-shadow: 0 0 0 1px #3b82f6;
+        }
+        
+        .node-task-group {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .node-header {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 12px 16px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .node-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            cursor: pointer;
+        }
+        
+        .expand-icon {
+            font-size: 14px;
+            color: #6b7280;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .node-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #1f2937;
+        }
+        
+        .status-badge {
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .tasks-list {
+            padding: 16px;
+        }
+        
+        .add-task-form {
+            padding: 16px;
+            border-top: 1px solid #f3f4f6;
+            background: #f9fafb;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-dialog {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            min-width: 400px;
+            max-width: 90vw;
+        }
+        
+        .status-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>

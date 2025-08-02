@@ -416,15 +416,8 @@ function renderNodeItem(node, index, isChild = false, parentIndex = null, depth 
     
     // ノード名の前にステータスインジケーターを追加
     const statusIndicator = document.createElement('span');
-    statusIndicator.style.cssText = `
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: ${statusInfo.color};
-        margin-right: 6px;
-        vertical-align: middle;
-    `;
+    statusIndicator.className = 'status-indicator';
+    statusIndicator.style.backgroundColor = statusInfo.color;
     statusIndicator.title = `ステータス: ${statusInfo.label}`;
     
     nodeText.appendChild(statusIndicator);
@@ -1424,7 +1417,7 @@ function createDefaultProject(name = '新しいプロジェクト', description 
 
 // プロジェクトID生成
 function generateProjectId() {
-    return 'project_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    return 'project_' + crypto.randomUUID();
 }
 
 // プロジェクト一覧取得
@@ -1717,11 +1710,8 @@ function duplicateCurrentProject() {
             duplicatedProject.data = JSON.parse(JSON.stringify(currentProject.data)); // ディープコピー
         }
         
-        // プロジェクト配列を更新
-        const index = projects.findIndex(p => p.id === duplicatedProject.id);
-        if (index !== -1) {
-            projects[index] = duplicatedProject;
-        }
+        // プロジェクト配列に追加
+        projects.push(duplicatedProject);
         
         saveProjectsToStorage();
         updateProjectSelector();
@@ -2321,32 +2311,7 @@ function renderTaskList(nodeIndex) {
     }
     
     tasks.forEach(task => {
-        const taskItem = document.createElement('div');
-        taskItem.className = 'task-item';
-        taskItem.innerHTML = `
-            <input type="checkbox" 
-                class="task-checkbox" 
-                ${task.completed ? 'checked' : ''} 
-                onchange="toggleTaskCompletion(${nodeIndex}, '${task.id}')"
-                aria-label="タスク完了状態">
-            <span class="task-text ${task.completed ? 'completed' : ''}" 
-                id="task-text-${task.id}">${task.text}</span>
-            <div class="task-menu">
-                <button class="task-menu-button" 
-                    onclick="toggleTaskMenu('${task.id}')" 
-                    aria-label="タスクメニューを開く"
-                    aria-expanded="false"
-                    aria-haspopup="menu">⋯</button>
-                <div class="task-menu-dropdown" 
-                    id="menu-${task.id}" 
-                    style="display: none;"
-                    role="menu"
-                    aria-hidden="true">
-                    <button onclick="editTask(${nodeIndex}, '${task.id}')" role="menuitem">✏️ 編集</button>
-                    <button onclick="deleteTask(${nodeIndex}, '${task.id}')" role="menuitem">🗑️ 削除</button>
-                </div>
-            </div>
-        `;
+        const taskItem = createTaskItemElement(nodeIndex, task);
         taskList.appendChild(taskItem);
     });
 }
@@ -2409,14 +2374,7 @@ function editTask(nodeIndex, taskId) {
     input.type = 'text';
     input.value = currentText;
     input.className = 'task-edit-input';
-    input.style.cssText = `
-        flex: 1;
-        padding: 4px 8px;
-        border: 1px solid #3b82f6;
-        border-radius: 4px;
-        font-size: 14px;
-        box-shadow: 0 0 0 1px #3b82f6;
-    `;
+    input.className = 'task-edit-input-focused';
     
     // 保存・キャンセル関数
     const saveEdit = () => {
@@ -2643,13 +2601,7 @@ function renderNodeTaskGroup(nodeIndex, container) {
     const nodeGroup = document.createElement('div');
     nodeGroup.className = 'node-task-group';
     nodeGroup.setAttribute('data-node-group', nodeIndex);
-    nodeGroup.style.cssText = `
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        background: white;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    `;
+    // スタイルはCSSクラスで設定済み
     
     // ノードヘッダー（ステータス付き）
     const nodeHeader = document.createElement('div');
@@ -2871,37 +2823,51 @@ function updateNodeTasksOnly(nodeIndex) {
     }
     
     // データの永続化
-    saveDataToStorage();
+    saveToLocalStorage();
 }
 
 // タスクアイテム要素を作成
 function createTaskItemElement(nodeIndex, task) {
     const taskItem = document.createElement('div');
     taskItem.className = 'task-item';
-    taskItem.innerHTML = `
-        <input type="checkbox" 
-            class="task-checkbox" 
-            ${task.completed ? 'checked' : ''} 
-            onchange="toggleTaskCompletion(${nodeIndex}, '${task.id}')"
-            aria-label="タスク完了状態">
-        <span class="task-text ${task.completed ? 'completed' : ''}" 
-            id="task-text-${task.id}">${task.text}</span>
-        <div class="task-menu">
-            <button class="task-menu-button" 
-                onclick="toggleTaskMenu('${task.id}')" 
-                aria-label="タスクメニューを開く"
-                aria-expanded="false"
-                aria-haspopup="menu">⋯</button>
-            <div class="task-menu-dropdown" 
-                id="menu-${task.id}" 
-                style="display: none;"
-                role="menu"
-                aria-hidden="true">
-                <button onclick="editTask(${nodeIndex}, '${task.id}')" role="menuitem">✏️ 編集</button>
-                <button onclick="deleteTask(${nodeIndex}, '${task.id}')" role="menuitem">🗑️ 削除</button>
-            </div>
+    
+    // チェックボックス作成
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'task-checkbox';
+    checkbox.checked = task.completed;
+    checkbox.setAttribute('onchange', `toggleTaskCompletion(${nodeIndex}, '${task.id}')`);
+    checkbox.setAttribute('aria-label', 'タスク完了状態');
+    
+    // タスクテキスト作成（XSS対策のためtextContentを使用）
+    const taskTextSpan = document.createElement('span');
+    taskTextSpan.className = `task-text ${task.completed ? 'completed' : ''}`;
+    taskTextSpan.id = `task-text-${task.id}`;
+    taskTextSpan.textContent = task.text;
+    
+    // メニューコンテナ作成
+    const menuContainer = document.createElement('div');
+    menuContainer.className = 'task-menu';
+    menuContainer.innerHTML = `
+        <button class="task-menu-button" 
+            onclick="toggleTaskMenu('${task.id}')" 
+            aria-label="タスクメニューを開く"
+            aria-expanded="false"
+            aria-haspopup="menu">⋯</button>
+        <div class="task-menu-dropdown" 
+            id="menu-${task.id}" 
+            style="display: none;"
+            role="menu"
+            aria-hidden="true">
+            <button onclick="editTask(${nodeIndex}, '${task.id}')" role="menuitem">✏️ 編集</button>
+            <button onclick="deleteTask(${nodeIndex}, '${task.id}')" role="menuitem">🗑️ 削除</button>
         </div>
     `;
+    
+    // 要素を組み立て
+    taskItem.appendChild(checkbox);
+    taskItem.appendChild(taskTextSpan);
+    taskItem.appendChild(menuContainer);
     
     return taskItem;
 }
@@ -2915,14 +2881,7 @@ function editTaskInAllView(nodeIndex, taskId, taskTextElement) {
     input.type = 'text';
     input.value = currentText;
     input.className = 'task-edit-input';
-    input.style.cssText = `
-        flex: 1;
-        padding: 4px 8px;
-        border: 1px solid #3b82f6;
-        border-radius: 4px;
-        font-size: 14px;
-        box-shadow: 0 0 0 1px #3b82f6;
-    `;
+    input.className = 'task-edit-input-focused';
     
     // 保存・キャンセル関数
     const saveEdit = () => {
