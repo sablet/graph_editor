@@ -36,7 +36,7 @@ const initialNodes = [
 ];
 
 // アプリケーションの状態
-let nodes = [...initialNodes];
+let nodes = []; // LocalStorageから読み込み、なければinitialNodesを使用
 let relations = [];
 let nodeHierarchy = []; // 親子関係を保存 {children: [childIndex1, childIndex2], parent: parentIndex}
 let currentZoom = 1;
@@ -45,6 +45,20 @@ let lastMousePos = { x: 0, y: 0 };
 let fullscreenZoom = 1;
 let isFullscreenDragging = false;
 let fullscreenLastMousePos = { x: 0, y: 0 };
+
+// タスク管理データ
+let nodeTasks = {};
+let selectedNodeIndex = null;
+
+// ノードステータス管理データ
+let nodeStatuses = {};
+
+// ノードカード折りたたみ状態管理
+let nodeCardCollapsed = {};
+
+// プロジェクト管理データ
+let projects = [];
+let currentProjectId = null;
 
 // Mermaidの設定
 mermaid.initialize({ 
@@ -58,6 +72,25 @@ mermaid.initialize({
 
 // 初期化
 document.addEventListener('DOMContentLoaded', function() {
+    // プロジェクト管理の初期化
+    loadProjectsFromStorage();
+    
+    // 古いLocalStorageデータのマイグレーション処理を先に行う
+    const oldDataLoaded = loadFromLocalStorage();
+    if (oldDataLoaded && projects.length === 1 && projects[0].name === 'デフォルトプロジェクト') {
+        // 既存データを現在のプロジェクトに統合
+        saveCurrentProjectData();
+        saveProjectsToStorage();
+    } else {
+        // プロジェクトがある場合は現在のプロジェクトを読み込み
+        if (currentProjectId) {
+            const currentProject = getCurrentProject();
+            if (currentProject) {
+                loadProjectData(currentProject);
+            }
+        }
+    }
+    
     renderNodes();
     renderSelects();
     renderHierarchySelects();
@@ -68,6 +101,15 @@ document.addEventListener('DOMContentLoaded', function() {
     setupDiagramControls();
     setupFullscreenControls();
     setupMobileTabs();
+    
+    // プレビューパネルタブ機能初期化
+    setupPreviewTabs();
+    
+    // タスク機能初期化
+    initializeTaskSystem();
+    
+    // プロジェクト管理UI初期化
+    initializeProjectManagement();
     
     // Ctrl+Enterキーでシングルノード追加
     document.getElementById('node-input').addEventListener('keydown', function(e) {
@@ -115,11 +157,27 @@ function addSingleNode() {
         return;
     }
     
+    const newNodeIndex = nodes.length;
     nodes.push(cleanedFirstLine);
+    
+    // 新規ノードに空のタスク配列を初期化
+    if (!nodeTasks[newNodeIndex]) {
+        nodeTasks[newNodeIndex] = [];
+    }
+    
     nodeInput.value = '';
     
     renderNodes();
     renderSelects();
+    renderHierarchySelects();
+    renderRelations();
+    renderHierarchy();
+    updateTaskNodeSelect();
+    updateUILabels();
+    renderAllNodesTasks();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
 }
 
 // バルクノード追加（複数行対応・確認ダイアログ付き）
@@ -173,12 +231,30 @@ function addBulkNodes() {
     
     // 確認ダイアログを表示
     if (confirm(confirmMessage)) {
+        const startIndex = nodes.length;
         nodes.push(...validNodes);
+        
+        // 新規ノードに空のタスク配列を初期化
+        validNodes.forEach((_, index) => {
+            const nodeIndex = startIndex + index;
+            if (!nodeTasks[nodeIndex]) {
+                nodeTasks[nodeIndex] = [];
+            }
+        });
+        
         nodeInput.value = '';
         
         renderNodes();
         renderSelects();
         renderHierarchySelects();
+        renderRelations();
+        renderHierarchy();
+        updateTaskNodeSelect();
+        updateUILabels();
+        renderAllNodesTasks();
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
         
         let resultMessage = `${validNodes.length}個のノードを追加しました。`;
         if (duplicates.length > 0) {
@@ -190,7 +266,7 @@ function addBulkNodes() {
 
 // ノード削除
 function deleteNode(index) {
-    if (confirm(`ノード「${nodes[index]}」を削除しますか？関連するリレーションと階層関係も削除されます。`)) {
+    if (confirm(`ノード「${nodes[index]}」を削除しますか？関連するリレーション、階層関係、タスクも削除されます。`)) {
         // 関連するリレーションを削除
         relations = relations.filter(rel => rel.from !== index && rel.to !== index);
         
@@ -211,6 +287,15 @@ function deleteNode(index) {
             parent: hier.parent > index ? hier.parent - 1 : hier.parent
         })).filter(hier => hier.children.length > 0);
         
+        // タスクデータのクリーンアップ
+        cleanupTasksAfterNodeDeletion(index);
+        
+        // ステータスデータのクリーンアップ
+        cleanupNodeStatusAfterDeletion(index);
+        
+        // 折りたたみ状態のクリーンアップ
+        cleanupNodeCardStateAfterDeletion(index);
+        
         // ノードを削除
         nodes.splice(index, 1);
         
@@ -219,7 +304,11 @@ function deleteNode(index) {
         renderHierarchySelects();
         renderRelations();
         renderHierarchy();
+        updateTaskNodeSelect();
         generateMermaidCode();
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
     }
 }
 
@@ -323,7 +412,16 @@ function renderNodeItem(node, index, isChild = false, parentIndex = null, depth 
     }
     
     const nodeText = document.createElement('span');
-    nodeText.textContent = `${getNodeDisplayNumber(index)}. ${node}`;
+    const statusInfo = getNodeStatusInfo(index);
+    
+    // ノード名の前にステータスインジケーターを追加
+    const statusIndicator = document.createElement('span');
+    statusIndicator.className = 'status-indicator';
+    statusIndicator.style.backgroundColor = statusInfo.color;
+    statusIndicator.title = `ステータス: ${statusInfo.label}`;
+    
+    nodeText.appendChild(statusIndicator);
+    nodeText.appendChild(document.createTextNode(`${getNodeDisplayNumber(index)}. ${node}`));
     nodeText.style.marginRight = '10px';
     
     const deleteButton = document.createElement('button');
@@ -379,7 +477,10 @@ function hideNodeAndDescendants(nodeElement) {
     
     // この要素のノードインデックスを取得
     const deleteButton = nodeElement.querySelector('.btn-danger');
-    const nodeIndex = parseInt(deleteButton.onclick.toString().match(/deleteNode\((\d+)\)/)?.[1]);
+    let nodeIndex;
+    if (deleteButton && deleteButton.onclick) {
+        nodeIndex = parseInt(deleteButton.onclick.toString().match(/deleteNode\((\d+)\)/)?.[1]);
+    }
     
     if (nodeIndex !== undefined) {
         // このノードの子ノードもすべて非表示にする
@@ -637,6 +738,9 @@ function addHierarchy() {
     updateUILabels(); // ラベルを更新
     generateMermaidCode();
     
+    // LocalStorageに保存
+    saveToLocalStorage();
+    
     // フォームをリセット
     checkboxes.forEach(checkbox => {
         checkbox.checked = false;
@@ -815,6 +919,9 @@ function deleteHierarchyChild(hierarchyIndex, childIndex) {
     regenerateNodeNumbers();
     updateUILabels();
     generateMermaidCode();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
 }
 
 // 階層関係を削除
@@ -824,6 +931,9 @@ function deleteHierarchy(hierarchyIndex) {
     regenerateNodeNumbers();
     updateUILabels();
     generateMermaidCode();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
 }
 
 
@@ -875,6 +985,9 @@ function addRelation() {
     // UIを更新
     renderRelations();
     generateMermaidCode();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
     
     // フォームをリセット
     checkboxes.forEach(checkbox => {
@@ -984,6 +1097,9 @@ function deleteRelation(index) {
     relations.splice(index, 1);
     renderRelations();
     generateMermaidCode();
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
 }
 
 // ノードIDを生成（Mermaid用）
@@ -1275,6 +1391,1826 @@ function fitToFullscreenContainer() {
         setFullscreenZoom(scale);
         container.scrollLeft = 0;
         container.scrollTop = 0;
+    }
+}
+
+// プロジェクト管理機能
+
+// プロジェクトのデフォルト構造
+function createDefaultProject(name = '新しいプロジェクト', description = '', useInitialData = false) {
+    return {
+        id: generateProjectId(),
+        name: name,
+        description: description,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        data: {
+            nodes: useInitialData ? [...initialNodes] : [],
+            relations: [],
+            nodeHierarchy: [],
+            nodeTasks: {},
+            nodeStatuses: {},
+            nodeCardCollapsed: {}
+        }
+    };
+}
+
+// プロジェクトID生成
+function generateProjectId() {
+    return 'project_' + crypto.randomUUID();
+}
+
+// プロジェクト一覧取得
+function getProjects() {
+    return projects;
+}
+
+// 現在のプロジェクト取得
+function getCurrentProject() {
+    return projects.find(p => p.id === currentProjectId);
+}
+
+// プロジェクト作成
+function createProject(name, description = '') {
+    const newProject = createDefaultProject(name, description, false); // 空データで作成
+    projects.push(newProject);
+    saveProjectsToStorage();
+    return newProject;
+}
+
+// プロジェクト更新
+function updateProject(projectId, updates) {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+        Object.assign(project, updates);
+        project.updatedAt = new Date().toISOString();
+        saveProjectsToStorage();
+        return project;
+    }
+    return null;
+}
+
+// プロジェクト削除
+function deleteProject(projectId) {
+    const index = projects.findIndex(p => p.id === projectId);
+    if (index !== -1) {
+        projects.splice(index, 1);
+        
+        // 削除したプロジェクトが現在選択中の場合
+        if (currentProjectId === projectId) {
+            if (projects.length > 0) {
+                switchToProject(projects[0].id);
+            } else {
+                // プロジェクトが全部削除された場合、新規プロジェクトを作成
+                const defaultProject = createProject('デフォルトプロジェクト');
+                switchToProject(defaultProject.id);
+            }
+        }
+        
+        saveProjectsToStorage();
+        return true;
+    }
+    return false;
+}
+
+// プロジェクト切り替え
+function switchToProject(projectId) {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return false;
+    
+    // 現在のプロジェクトのデータを保存
+    if (currentProjectId && currentProjectId !== projectId) {
+        saveCurrentProjectData();
+    }
+    
+    // 新しいプロジェクトのデータを読み込み
+    currentProjectId = projectId;
+    loadProjectData(project);
+    
+    // UI更新
+    updateProjectUI();
+    saveCurrentProjectIdToStorage();
+    
+    return true;
+}
+
+// 現在のプロジェクトデータを保存
+function saveCurrentProjectData() {
+    const currentProject = getCurrentProject();
+    if (currentProject) {
+        currentProject.data = {
+            nodes: [...nodes],
+            relations: [...relations],
+            nodeHierarchy: [...nodeHierarchy],
+            nodeTasks: {...nodeTasks},
+            nodeStatuses: {...nodeStatuses},
+            nodeCardCollapsed: {...nodeCardCollapsed}
+        };
+        currentProject.updatedAt = new Date().toISOString();
+    }
+}
+
+// プロジェクトデータを読み込み
+function loadProjectData(project) {
+    nodes = [...project.data.nodes];
+    relations = [...project.data.relations];
+    nodeHierarchy = [...project.data.nodeHierarchy];
+    nodeTasks = {...project.data.nodeTasks};
+    nodeStatuses = {...project.data.nodeStatuses};
+    nodeCardCollapsed = {...project.data.nodeCardCollapsed};
+}
+
+// プロジェクト関連のLocalStorage操作
+function saveProjectsToStorage() {
+    try {
+        localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
+        return true;
+    } catch (e) {
+        console.error('Failed to save projects to localStorage:', e);
+        return false;
+    }
+}
+
+function saveCurrentProjectIdToStorage() {
+    try {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_PROJECT_ID, currentProjectId);
+        return true;
+    } catch (e) {
+        console.error('Failed to save current project ID to localStorage:', e);
+        return false;
+    }
+}
+
+function loadProjectsFromStorage() {
+    try {
+        const savedProjects = localStorage.getItem(STORAGE_KEYS.PROJECTS);
+        const savedCurrentProjectId = localStorage.getItem(STORAGE_KEYS.CURRENT_PROJECT_ID);
+        
+        if (savedProjects) {
+            projects = JSON.parse(savedProjects);
+        } else {
+            // 初回訪問時、デフォルトプロジェクトを作成（初期データ付き）
+            const defaultProject = createDefaultProject('デフォルトプロジェクト', '初期プロジェクト', true);
+            projects = [defaultProject];
+        }
+        
+        // 現在のプロジェクトIDを復元
+        if (savedCurrentProjectId && projects.find(p => p.id === savedCurrentProjectId)) {
+            currentProjectId = savedCurrentProjectId;
+        } else {
+            // プロジェクトが見つからない場合、最初のプロジェクトを選択
+            currentProjectId = projects.length > 0 ? projects[0].id : null;
+        }
+        
+        return true;
+    } catch (e) {
+        console.error('Failed to load projects from localStorage:', e);
+        return false;
+    }
+}
+
+// UI更新関数
+function updateProjectUI() {
+    renderNodes();
+    renderSelects();
+    renderHierarchySelects();
+    renderRelations();
+    renderHierarchy();
+    updateUILabels();
+    generateMermaidCode();
+    updateTaskNodeSelect();
+    renderAllNodesTasks();
+    updateProjectSelector();
+}
+
+// プロジェクトセレクター更新
+function updateProjectSelector() {
+    const selector = document.getElementById('project-selector');
+    if (!selector) return;
+    
+    selector.innerHTML = '';
+    
+    projects.forEach(project => {
+        const option = document.createElement('option');
+        option.value = project.id;
+        option.textContent = project.name;
+        option.selected = project.id === currentProjectId;
+        selector.appendChild(option);
+    });
+}
+
+// プロジェクト管理UI関数
+
+// プロジェクト管理の初期化
+function initializeProjectManagement() {
+    updateProjectSelector();
+    setupProjectEventListeners();
+}
+
+// プロジェクト関連のイベントリスナー設定
+function setupProjectEventListeners() {
+    // プロジェクト選択
+    const selector = document.getElementById('project-selector');
+    if (selector) {
+        selector.addEventListener('change', function(e) {
+            const projectId = e.target.value;
+            if (projectId && projectId !== currentProjectId) {
+                switchToProject(projectId);
+            }
+        });
+    }
+    
+    // プロジェクト作成ボタン
+    const createBtn = document.getElementById('create-project-btn');
+    if (createBtn) {
+        createBtn.addEventListener('click', showCreateProjectModal);
+    }
+    
+    // プロジェクト更新ボタン
+    const updateBtn = document.getElementById('update-project-btn');
+    if (updateBtn) {
+        updateBtn.addEventListener('click', updateCurrentProject);
+    }
+    
+    // プロジェクト削除ボタン
+    const deleteBtn = document.getElementById('delete-project-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', deleteCurrentProject);
+    }
+}
+
+// プロジェクト作成モーダル表示
+function showCreateProjectModal() {
+    const name = prompt('プロジェクト名を入力してください:', '');
+    if (name && name.trim()) {
+        const description = prompt('プロジェクトの説明を入力してください（省略可）:', '') || '';
+        const newProject = createProject(name.trim(), description.trim());
+        switchToProject(newProject.id);
+        alert(`プロジェクト「${name}」が作成されました。`);
+    }
+}
+
+// 現在のプロジェクト更新
+function updateCurrentProject() {
+    const currentProject = getCurrentProject();
+    if (!currentProject) {
+        alert('プロジェクトが選択されていません。');
+        return;
+    }
+    
+    const newName = prompt('新しいプロジェクト名を入力してください:', currentProject.name);
+    if (!newName || newName.trim() === currentProject.name) {
+        return; // キャンセルまたは変更なし
+    }
+    
+    const newDescription = prompt('新しい説明を入力してください（省略可）:', currentProject.description || '');
+    
+    updateProject(currentProject.id, { 
+        name: newName.trim(),
+        description: newDescription.trim()
+    });
+    updateProjectSelector();
+    alert(`プロジェクト「${newName.trim()}」を更新しました。`);
+}
+
+// 現在のプロジェクト削除
+function deleteCurrentProject() {
+    const currentProject = getCurrentProject();
+    if (!currentProject) return;
+    
+    if (projects.length === 1) {
+        alert('最後のプロジェクトは削除できません。');
+        return;
+    }
+    
+    const confirmDelete = confirm(`プロジェクト「${currentProject.name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`);
+    if (confirmDelete) {
+        const projectName = currentProject.name;
+        deleteProject(currentProject.id);
+        updateProjectSelector();
+        alert(`プロジェクト「${projectName}」を削除しました。`);
+    }
+}
+
+// プロジェクト複製
+function duplicateCurrentProject() {
+    const currentProject = getCurrentProject();
+    if (!currentProject) return;
+    
+    const newName = prompt('複製するプロジェクトの名前を入力してください:', `${currentProject.name} のコピー`);
+    if (newName && newName.trim()) {
+        const copyData = confirm('現在のプロジェクトのデータをコピーしますか？\n\n「OK」: データをコピー\n「キャンセル」: 空のプロジェクト');
+        
+        // 現在のデータを保存してから複製
+        saveCurrentProjectData();
+        
+        const duplicatedProject = createDefaultProject(newName.trim(), `${currentProject.description} (複製)`, false);
+        
+        if (copyData) {
+            duplicatedProject.data = JSON.parse(JSON.stringify(currentProject.data)); // ディープコピー
+        }
+        
+        // プロジェクト配列に追加
+        projects.push(duplicatedProject);
+        
+        saveProjectsToStorage();
+        updateProjectSelector();
+        alert(`プロジェクト「${newName.trim()}」が作成されました。`);
+    }
+}
+
+// LocalStorage データ永続化機能
+
+// LocalStorageキー定義
+const STORAGE_KEYS = {
+    NODES: 'graphEditor_nodes',
+    RELATIONS: 'graphEditor_relations', 
+    NODE_HIERARCHY: 'graphEditor_nodeHierarchy',
+    NODE_TASKS: 'graphEditor_nodeTasks',
+    NODE_STATUSES: 'graphEditor_nodeStatuses',
+    NODE_CARD_COLLAPSED: 'graphEditor_nodeCardCollapsed',
+    DATA_VERSION: 'graphEditor_dataVersion',
+    // プロジェクト管理
+    PROJECTS: 'graphEditor_projects',
+    CURRENT_PROJECT_ID: 'graphEditor_currentProjectId'
+};
+
+// データバージョン管理
+const CURRENT_DATA_VERSION = '1.0';
+
+// LocalStorageの可用性チェック
+function isLocalStorageAvailable() {
+    try {
+        const test = '__localStorage_test__';
+        localStorage.setItem(test, test);
+        localStorage.removeItem(test);
+        return true;
+    } catch (e) {
+        console.warn('LocalStorage not available:', e);
+        return false;
+    }
+}
+
+// 全データをLocalStorageに保存
+function saveToLocalStorage() {
+    if (!isLocalStorageAvailable()) {
+        console.warn('LocalStorage not available, data will not be persisted');
+        return false;
+    }
+    
+    try {
+        // プロジェクト管理対応: 現在のプロジェクトデータを保存
+        if (currentProjectId) {
+            saveCurrentProjectData();
+            saveProjectsToStorage();
+            saveCurrentProjectIdToStorage();
+        } else {
+            // 旧形式のデータ保存（後方互換性のため）
+            localStorage.setItem(STORAGE_KEYS.DATA_VERSION, CURRENT_DATA_VERSION);
+            localStorage.setItem(STORAGE_KEYS.NODES, JSON.stringify(nodes));
+            localStorage.setItem(STORAGE_KEYS.RELATIONS, JSON.stringify(relations));
+            localStorage.setItem(STORAGE_KEYS.NODE_HIERARCHY, JSON.stringify(nodeHierarchy));
+            localStorage.setItem(STORAGE_KEYS.NODE_TASKS, JSON.stringify(nodeTasks));
+            localStorage.setItem(STORAGE_KEYS.NODE_STATUSES, JSON.stringify(nodeStatuses));
+            localStorage.setItem(STORAGE_KEYS.NODE_CARD_COLLAPSED, JSON.stringify(nodeCardCollapsed));
+        }
+        
+        console.log('Data saved to localStorage successfully');
+        return true;
+    } catch (e) {
+        console.error('Failed to save to localStorage:', e);
+        return false;
+    }
+}
+
+// LocalStorageからデータを読み込み
+function loadFromLocalStorage() {
+    if (!isLocalStorageAvailable()) {
+        console.warn('LocalStorage not available, using initial data');
+        initializeWithDefaultData();
+        return false;
+    }
+    
+    try {
+        // データバージョンチェック
+        const savedVersion = localStorage.getItem(STORAGE_KEYS.DATA_VERSION);
+        if (savedVersion !== CURRENT_DATA_VERSION) {
+            console.log('Data version mismatch or no saved data, using initial data');
+            initializeWithDefaultData();
+            return false;
+        }
+        
+        // 各データを個別に読み込み
+        const savedNodes = localStorage.getItem(STORAGE_KEYS.NODES);
+        const savedRelations = localStorage.getItem(STORAGE_KEYS.RELATIONS);
+        const savedNodeHierarchy = localStorage.getItem(STORAGE_KEYS.NODE_HIERARCHY);
+        const savedNodeTasks = localStorage.getItem(STORAGE_KEYS.NODE_TASKS);
+        const savedNodeStatuses = localStorage.getItem(STORAGE_KEYS.NODE_STATUSES);
+        const savedNodeCardCollapsed = localStorage.getItem(STORAGE_KEYS.NODE_CARD_COLLAPSED);
+        
+        // データが存在する場合のみ復元、なければ初期データを使用
+        if (savedNodes) {
+            nodes = JSON.parse(savedNodes);
+        } else {
+            nodes = [...initialNodes];
+        }
+        
+        if (savedRelations) {
+            relations = JSON.parse(savedRelations);
+        } else {
+            relations = [];
+        }
+        
+        if (savedNodeHierarchy) {
+            nodeHierarchy = JSON.parse(savedNodeHierarchy);
+        } else {
+            nodeHierarchy = [];
+        }
+        
+        if (savedNodeTasks) {
+            nodeTasks = JSON.parse(savedNodeTasks);
+        } else {
+            nodeTasks = {};
+        }
+        
+        if (savedNodeStatuses) {
+            nodeStatuses = JSON.parse(savedNodeStatuses);
+        } else {
+            nodeStatuses = {};
+        }
+        
+        if (savedNodeCardCollapsed) {
+            nodeCardCollapsed = JSON.parse(savedNodeCardCollapsed);
+        } else {
+            nodeCardCollapsed = {};
+        }
+        
+        console.log('Data loaded from localStorage successfully');
+        return true;
+    } catch (e) {
+        console.error('Failed to load from localStorage:', e);
+        initializeWithDefaultData();
+        return false;
+    }
+}
+
+// 初期データで初期化
+function initializeWithDefaultData() {
+    nodes = [...initialNodes];
+    relations = [];
+    nodeHierarchy = [];
+    nodeTasks = {};
+    nodeStatuses = {};
+    nodeCardCollapsed = {};
+    selectedNodeIndex = null;
+    console.log('Initialized with default data');
+}
+
+// LocalStorageデータをクリア
+function clearLocalStorage() {
+    if (!isLocalStorageAvailable()) {
+        return false;
+    }
+    
+    try {
+        Object.values(STORAGE_KEYS).forEach(key => {
+            localStorage.removeItem(key);
+        });
+        console.log('LocalStorage cleared successfully');
+        return true;
+    } catch (e) {
+        console.error('Failed to clear localStorage:', e);
+        return false;
+    }
+}
+
+// データリセット（初期状態に戻す）
+function resetToInitialData() {
+    // データを初期状態に戻す
+    nodes = [...initialNodes];
+    relations = [];
+    nodeHierarchy = [];
+    nodeTasks = {};
+    selectedNodeIndex = null;
+    nodeStatuses = {};
+    nodeCardCollapsed = {};
+    
+    // LocalStorageをクリア
+    clearLocalStorage();
+    
+    // UIを更新
+    renderNodes();
+    renderSelects();
+    renderHierarchySelects();
+    renderRelations();
+    renderHierarchy();
+    updateTaskNodeSelect();
+    renderAllNodesTasks();
+    generateMermaidCode();
+    
+    console.log('Data reset to initial state');
+}
+
+// エクスポート/インポート機能
+function exportData() {
+    // 現在のプロジェクトデータを保存
+    if (currentProjectId) {
+        saveCurrentProjectData();
+    }
+    
+    const exportData = {
+        version: CURRENT_DATA_VERSION,
+        timestamp: new Date().toISOString(),
+        exportType: 'projects', // プロジェクト形式
+        data: {
+            projects: projects,
+            currentProjectId: currentProjectId
+        },
+        // 後方互換性のための旧形式データ
+        legacyData: {
+            nodes,
+            relations,
+            nodeHierarchy,
+            nodeTasks,
+            nodeStatuses,
+            nodeCardCollapsed
+        }
+    };
+    
+    return JSON.stringify(exportData, null, 2);
+}
+
+function importData(jsonData) {
+    try {
+        const importedData = JSON.parse(jsonData);
+        
+        // バージョンチェック
+        if (importedData.version !== CURRENT_DATA_VERSION) {
+            throw new Error(`Data version mismatch. Expected ${CURRENT_DATA_VERSION}, got ${importedData.version}`);
+        }
+        
+        // プロジェクト形式のデータか確認
+        if (importedData.exportType === 'projects' && importedData.data && importedData.data.projects) {
+            // プロジェクト形式のインポート
+            projects = importedData.data.projects;
+            
+            // プロジェクトIDが存在するか確認
+            const targetProjectId = importedData.data.currentProjectId;
+            if (targetProjectId && projects.find(p => p.id === targetProjectId)) {
+                currentProjectId = targetProjectId;
+            } else {
+                currentProjectId = projects.length > 0 ? projects[0].id : null;
+            }
+            
+            // 現在のプロジェクトのデータを読み込み
+            if (currentProjectId) {
+                const currentProject = getCurrentProject();
+                if (currentProject) {
+                    loadProjectData(currentProject);
+                }
+            }
+            
+            // プロジェクトデータを保存
+            saveProjectsToStorage();
+            saveCurrentProjectIdToStorage();
+            
+        } else {
+            // 旧形式または単一プロジェクトデータのインポート
+            let dataToImport;
+            
+            if (importedData.data && Array.isArray(importedData.data.nodes)) {
+                // 新形式の単一プロジェクトデータ
+                dataToImport = importedData.data;
+            } else if (importedData.legacyData && Array.isArray(importedData.legacyData.nodes)) {
+                // レガシーデータ
+                dataToImport = importedData.legacyData;
+            } else {
+                throw new Error('Invalid data format');
+            }
+            
+            // 新しいプロジェクトとして追加
+            const importProjectName = `インポート ${new Date().toLocaleDateString()}`;
+            const newProject = createProject(importProjectName, 'インポートされたプロジェクト');
+            
+            // データを復元
+            nodes = dataToImport.nodes || [...initialNodes];
+            relations = dataToImport.relations || [];
+            nodeHierarchy = dataToImport.nodeHierarchy || [];
+            nodeTasks = dataToImport.nodeTasks || {};
+            nodeStatuses = dataToImport.nodeStatuses || {};
+            nodeCardCollapsed = dataToImport.nodeCardCollapsed || {};
+            
+            // プロジェクトに切り替え
+            switchToProject(newProject.id);
+        }
+        selectedNodeIndex = null;
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
+        
+        // UI全体を更新
+        updateProjectUI();
+        
+        return true;
+    } catch (e) {
+        console.error('Failed to import data:', e);
+        return false;
+    }
+}
+
+// UI統合関数
+
+// エクスポートデータをダウンロード
+function downloadExportData() {
+    try {
+        const data = exportData();
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `graph-editor-data-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('データをエクスポートしました');
+    } catch (e) {
+        console.error('Export failed:', e);
+        alert('エクスポートに失敗しました');
+    }
+}
+
+// ファイルインポートハンドラー
+function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const success = importData(e.target.result);
+            if (success) {
+                alert('データをインポートしました');
+            } else {
+                alert('インポートに失敗しました。ファイル形式を確認してください。');
+            }
+        } catch (err) {
+            console.error('Import error:', err);
+            alert('インポートに失敗しました: ' + err.message);
+        }
+        
+        // ファイル選択をリセット
+        event.target.value = '';
+    };
+    
+    reader.readAsText(file);
+}
+
+// タスク管理 CRUD 操作関数
+
+// Create - タスク追加
+function addTaskToNode(nodeIndex, taskText) {
+    // 入力検証
+    if (!taskText || taskText.trim() === '') {
+        return false;
+    }
+    
+    // ノード配列初期化
+    if (!nodeTasks[nodeIndex]) {
+        nodeTasks[nodeIndex] = [];
+    }
+    
+    // 新規タスク作成
+    const newTask = {
+        id: "task_" + Date.now(),
+        text: taskText.trim(),
+        completed: false
+    };
+    
+    // 配列に追加
+    nodeTasks[nodeIndex].push(newTask);
+    
+    // UI更新
+    renderTaskList(nodeIndex);
+    updateOverallProgress(); // 全体進捗も更新
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
+    
+    return newTask.id;
+}
+
+// Read - タスク取得
+function getNodeTasks(nodeIndex) {
+    return nodeTasks[nodeIndex] || [];
+}
+
+function getTaskById(nodeIndex, taskId) {
+    const tasks = nodeTasks[nodeIndex] || [];
+    return tasks.find(task => task.id === taskId) || null;
+}
+
+function getAllTaskStats() {
+    let totalTasks = 0;
+    let completedTasks = 0;
+    
+    Object.values(nodeTasks).forEach(tasks => {
+        totalTasks += tasks.length;
+        completedTasks += tasks.filter(t => t.completed).length;
+    });
+    
+    return {
+        total: totalTasks,
+        completed: completedTasks,
+        percentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+    };
+}
+
+// Update - タスク更新
+function updateTaskText(nodeIndex, taskId, newText) {
+    const tasks = nodeTasks[nodeIndex] || [];
+    const task = tasks.find(t => t.id === taskId);
+    
+    if (task && newText.trim() !== '') {
+        task.text = newText.trim();
+        renderTaskList(nodeIndex);
+        updateOverallProgress(); // 全体進捗も更新
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
+        return true;
+    }
+    
+    return false;
+}
+
+function toggleTaskCompletion(nodeIndex, taskId) {
+    const tasks = nodeTasks[nodeIndex] || [];
+    const task = tasks.find(t => t.id === taskId);
+    
+    if (task) {
+        task.completed = !task.completed;
+        renderTaskList(nodeIndex);
+        updateOverallProgress(); // 全体進捗も更新
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
+        return task.completed;
+    }
+    
+    return null;
+}
+
+// Delete - タスク削除
+function deleteTask(nodeIndex, taskId) {
+    if (!nodeTasks[nodeIndex]) {
+        return false;
+    }
+    
+    const originalLength = nodeTasks[nodeIndex].length;
+    nodeTasks[nodeIndex] = nodeTasks[nodeIndex].filter(task => task.id !== taskId);
+    
+    const deleted = originalLength > nodeTasks[nodeIndex].length;
+    
+    if (deleted) {
+        renderTaskList(nodeIndex);
+        updateOverallProgress(); // 全体進捗も更新
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
+    }
+    
+    return deleted;
+}
+
+function deleteAllNodeTasks(nodeIndex) {
+    const taskCount = nodeTasks[nodeIndex] ? nodeTasks[nodeIndex].length : 0;
+    
+    delete nodeTasks[nodeIndex];
+    renderTaskList(nodeIndex);
+    updateOverallProgress(); // 全体進捗も更新
+    
+    // LocalStorageに保存
+    saveToLocalStorage();
+    
+    return taskCount;
+}
+
+// タスクリスト表示制御
+function showTaskList() {
+    const taskContainer = document.getElementById('task-list-container');
+    if (taskContainer) {
+        taskContainer.style.display = 'block';
+    }
+    
+    // タスクタブが選択されていない場合は自動的に切り替える
+    const activeTab = document.querySelector('.preview-tab-button.active');
+    if (activeTab && activeTab.dataset.previewTab !== 'tasks') {
+        switchPreviewTab('tasks');
+    }
+}
+
+function hideTaskList() {
+    const taskContainer = document.getElementById('task-list-container');
+    if (taskContainer) {
+        taskContainer.style.display = 'none';
+    }
+}
+
+// ノード選択プルダウン更新
+function updateTaskNodeSelect() {
+    const select = document.getElementById('task-node-select');
+    if (!select) return;
+    
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">タスクを管理するノードを選択</option>';
+    
+    nodes.forEach((node, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        const statusInfo = getNodeStatusInfo(index);
+        
+        // ノード名とステータスを表示
+        option.textContent = `${getNodeDisplayNumber(index)}. ${node} [${statusInfo.label}]`;
+        
+        // タスク数を表示
+        const taskCount = getNodeTasks(index).length;
+        const completedCount = getNodeTasks(index).filter(t => t.completed).length;
+        
+        if (taskCount > 0) {
+            option.textContent += ` (${completedCount}/${taskCount})`;
+        }
+        
+        select.appendChild(option);
+    });
+    
+    // 前の選択を復元
+    if (currentValue !== '' && currentValue < nodes.length) {
+        select.value = currentValue;
+    }
+}
+
+// 選択ノード表示
+function showSelectedNodeTasks() {
+    const select = document.getElementById('task-node-select');
+    const nodeIndex = parseInt(select.value);
+    
+    if (isNaN(nodeIndex)) {
+        hideTaskList();
+        return;
+    }
+    
+    selectedNodeIndex = nodeIndex;
+    renderTaskList(nodeIndex);
+    showTaskList();
+}
+
+// タスクリスト描画
+function renderTaskList(nodeIndex) {
+    const taskList = document.getElementById('task-list');
+    const selectedNodeInfo = document.getElementById('selected-node-info');
+    
+    if (!taskList || !selectedNodeInfo) return;
+    
+    // ノード情報表示
+    const tasks = getNodeTasks(nodeIndex);
+    const completedCount = tasks.filter(t => t.completed).length;
+    const totalCount = tasks.length;
+    const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    const statusInfo = getNodeStatusInfo(nodeIndex);
+    
+    selectedNodeInfo.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="font-weight: 600;">選択ノード: 「${getNodeDisplayNumber(nodeIndex)}. ${nodes[nodeIndex]}」</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div onclick="openNodeStatusEditor(${nodeIndex})" 
+                     style="background: ${statusInfo.color}; color: white; padding: 8px 16px; border-radius: 12px; font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px; cursor: pointer; border: none; transition: opacity 0.2s ease;"
+                     onmouseover="this.style.opacity='0.8'" 
+                     onmouseout="this.style.opacity='1'"
+                     title="クリックしてステータスを変更">
+                    <span>${statusInfo.label}</span>
+                    <span style="font-size: 10px;">⚙️</span>
+                </div>
+            </div>
+        </div>
+        <span class="task-progress">進捗: ${completedCount}/${totalCount} 完了 (${percentage}%)</span>
+    `;
+    
+    // タスクリスト描画
+    taskList.innerHTML = '';
+    
+    if (tasks.length === 0) {
+        taskList.innerHTML = `
+            <div style="color: #6b7280; text-align: center; padding: 20px; font-style: italic;">
+                まだタスクがありません<br>
+                下のフォームから追加してください
+            </div>
+        `;
+        return;
+    }
+    
+    tasks.forEach(task => {
+        const taskItem = createTaskItemElement(nodeIndex, task);
+        taskList.appendChild(taskItem);
+    });
+}
+
+// 新規タスク追加
+function addNewTask() {
+    const input = document.getElementById('new-task-input');
+    const taskText = input.value.trim();
+    
+    if (!taskText) {
+        return;
+    }
+    
+    if (selectedNodeIndex === null) {
+        alert('タスクを追加するノードを選択してください');
+        return;
+    }
+    
+    const taskId = addTaskToNode(selectedNodeIndex, taskText);
+    if (taskId) {
+        input.value = '';
+    }
+}
+
+// 三点リーダーメニュー制御
+function toggleTaskMenu(taskId) {
+    const menu = document.getElementById(`menu-${taskId}`);
+    const button = menu.previousElementSibling;
+    
+    // 他のメニューを閉じる
+    closeAllTaskMenus();
+    
+    // 現在のメニューを表示
+    if (menu.style.display === 'none') {
+        menu.style.display = 'block';
+        button.setAttribute('aria-expanded', 'true');
+        menu.setAttribute('aria-hidden', 'false');
+    }
+}
+
+function closeAllTaskMenus() {
+    const menus = document.querySelectorAll('.task-menu-dropdown');
+    menus.forEach(menu => {
+        menu.style.display = 'none';
+        const button = menu.previousElementSibling;
+        button.setAttribute('aria-expanded', 'false');
+        menu.setAttribute('aria-hidden', 'true');
+    });
+}
+
+// インライン編集
+function editTask(nodeIndex, taskId) {
+    closeAllTaskMenus();
+    
+    const taskTextSpan = document.getElementById(`task-text-${taskId}`);
+    const currentText = taskTextSpan.textContent;
+    
+    // 編集用input要素を作成
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentText;
+    input.className = 'task-edit-input';
+    input.className = 'task-edit-input-focused';
+    
+    // 保存・キャンセル関数
+    const saveEdit = () => {
+        const newText = input.value.trim();
+        if (newText && newText !== currentText) {
+            updateTaskText(nodeIndex, taskId, newText);
+        } else {
+            taskTextSpan.textContent = currentText;
+            taskTextSpan.style.display = '';
+        }
+        input.remove();
+    };
+    
+    const cancelEdit = () => {
+        taskTextSpan.style.display = '';
+        input.remove();
+    };
+    
+    // イベントリスナー
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+        }
+    });
+    
+    input.addEventListener('blur', saveEdit);
+    
+    // spanを隠してinputを挿入
+    taskTextSpan.style.display = 'none';
+    taskTextSpan.parentNode.insertBefore(input, taskTextSpan);
+    input.focus();
+    input.select();
+}
+
+// ノード削除時のタスククリーンアップ
+function cleanupTasksAfterNodeDeletion(deletedIndex) {
+    // 削除されたノードのタスクを削除
+    delete nodeTasks[deletedIndex];
+    
+    // インデックス調整（他のノードのタスクも移動）
+    const newNodeTasks = {};
+    
+    Object.keys(nodeTasks).forEach(nodeIndexStr => {
+        const nodeIndex = parseInt(nodeIndexStr);
+        
+        if (nodeIndex > deletedIndex) {
+            // インデックスを1つ減らす
+            newNodeTasks[nodeIndex - 1] = nodeTasks[nodeIndex];
+        } else {
+            // そのまま保持
+            newNodeTasks[nodeIndex] = nodeTasks[nodeIndex];
+        }
+    });
+    
+    nodeTasks = newNodeTasks;
+    
+    // 選択中ノードの処理
+    if (selectedNodeIndex === deletedIndex) {
+        selectedNodeIndex = null;
+        hideTaskList();
+    } else if (selectedNodeIndex > deletedIndex) {
+        selectedNodeIndex--;
+    }
+}
+
+// ノードステータス管理 CRUD 操作関数
+
+// ノードステータスの状態定義
+const NODE_STATUSES = {
+    NOT_STARTED: { id: 'not_started', label: '未着手', color: '#6b7280', bgColor: '#f9fafb' },
+    IN_PROGRESS: { id: 'in_progress', label: '進行中', color: '#3b82f6', bgColor: '#eff6ff' },
+    ON_HOLD: { id: 'on_hold', label: '保留', color: '#f59e0b', bgColor: '#fffbeb' },
+    COMPLETED: { id: 'completed', label: '完了', color: '#059669', bgColor: '#f0fdf4' },
+    BLOCKED: { id: 'blocked', label: 'ブロック', color: '#dc2626', bgColor: '#fef2f2' }
+};
+
+// ノードステータス取得
+function getNodeStatus(nodeIndex) {
+    return nodeStatuses[nodeIndex] || NODE_STATUSES.NOT_STARTED.id;
+}
+
+// ノードステータス設定
+function setNodeStatus(nodeIndex, statusId) {
+    if (NODE_STATUSES[statusId.toUpperCase()]) {
+        nodeStatuses[nodeIndex] = statusId;
+        
+        // LocalStorageに保存
+        saveToLocalStorage();
+        return true;
+    }
+    return false;
+}
+
+// ノードステータス情報取得
+function getNodeStatusInfo(nodeIndex) {
+    const statusId = getNodeStatus(nodeIndex);
+    return NODE_STATUSES[statusId.toUpperCase()] || NODE_STATUSES.NOT_STARTED;
+}
+
+// 全体進捗を更新
+function updateOverallProgress() {
+    // 全ノードの進捗を計算
+    const totalNodes = nodes.length;
+    const completedNodes = Object.keys(nodeStatuses).filter(nodeIndex => 
+        nodeStatuses[nodeIndex] === 'completed'
+    ).length;
+    const nodeProgressPercentage = totalNodes > 0 ? Math.round((completedNodes / totalNodes) * 100) : 0;
+    
+    // 全タスクの進捗を計算
+    const taskStats = getAllTaskStats();
+    
+    // ノード進捗を表示
+    const nodeProgressElement = document.getElementById('overall-node-progress');
+    if (nodeProgressElement) {
+        nodeProgressElement.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px; color: #6b7280;">
+                <span>ノード進捗 (完了ステータス)</span>
+                <span>${completedNodes}/${totalNodes} (${nodeProgressPercentage}%)</span>
+            </div>
+            <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+                <div style="background: #059669; height: 100%; width: ${nodeProgressPercentage}%; transition: width 0.3s ease;"></div>
+            </div>
+        `;
+    }
+    
+    // タスク進捗を表示
+    const taskProgressElement = document.getElementById('overall-task-progress');
+    if (taskProgressElement) {
+        taskProgressElement.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px; color: #6b7280;">
+                <span>タスク進捗 (全ノード)</span>
+                <span>${taskStats.completed}/${taskStats.total} (${taskStats.percentage}%)</span>
+            </div>
+            <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+                <div style="background: #3b82f6; height: 100%; width: ${taskStats.percentage}%; transition: width 0.3s ease;"></div>
+            </div>
+        `;
+    }
+}
+
+// 全ノードタスク表示関数
+function renderAllNodesTasks() {
+    const allTasksContainer = document.getElementById('all-tasks-container');
+    if (!allTasksContainer) return;
+    
+    // 全体進捗を更新
+    updateOverallProgress();
+    
+    allTasksContainer.innerHTML = '';
+    
+    // 全ノードを取得（完了ステータスは除外）
+    const relevantNodeIndices = new Set();
+    
+    // 全ノードをチェック
+    for (let i = 0; i < nodes.length; i++) {
+        const status = nodeStatuses[i] || 'not_started'; // デフォルトは未着手
+        if (status !== 'completed') {
+            relevantNodeIndices.add(i);
+        }
+    }
+    
+    // ノードが存在しない場合のメッセージ
+    if (relevantNodeIndices.size === 0) {
+        allTasksContainer.innerHTML = `
+            <div style="color: #6b7280; text-align: center; padding: 40px; font-style: italic;">
+                タスクまたはステータスが設定されているノードがありません<br>
+                個別ノード管理から追加してください
+            </div>
+        `;
+        return;
+    }
+    
+    // 階層を考慮した表示順序に変更
+    const allIndices = Array.from(relevantNodeIndices);
+    
+    // 階層を考慮して表示順序を決定
+    const displayOrder = [];
+    
+    // すべての子ノードのインデックスを取得
+    const childIndices = new Set();
+    nodeHierarchy.forEach(hierarchy => {
+        hierarchy.children.forEach(childIndex => {
+            childIndices.add(childIndex);
+        });
+    });
+    
+    // 親ノードと独立ノードを順番に処理
+    for (let i = 0; i < nodes.length; i++) {
+        if (allIndices.includes(i) && !childIndices.has(i)) {
+            displayOrder.push(i);
+            
+            // この親ノードの子ノードがあれば続けて追加
+            const hierarchy = nodeHierarchy.find(h => h.parent === i);
+            if (hierarchy) {
+                hierarchy.children
+                    .filter(childIndex => allIndices.includes(childIndex))
+                    .sort((a, b) => a - b)
+                    .forEach(childIndex => {
+                        displayOrder.push(childIndex);
+                    });
+            }
+        }
+    }
+    
+    console.log('Display order:', displayOrder); // デバッグ用
+    
+    displayOrder.forEach(nodeIndex => {
+        if (nodeIndex >= 0 && nodeIndex < nodes.length) {
+            renderNodeTaskGroup(nodeIndex, allTasksContainer);
+        }
+    });
+}
+
+// 個別ノードタスクグループを描画
+function renderNodeTaskGroup(nodeIndex, container) {
+    const node = nodes[nodeIndex];
+    const tasks = getNodeTasks(nodeIndex);
+    const statusInfo = getNodeStatusInfo(nodeIndex);
+    
+    const nodeGroup = document.createElement('div');
+    nodeGroup.className = 'node-task-group';
+    nodeGroup.setAttribute('data-node-group', nodeIndex);
+    // スタイルはCSSクラスで設定済み
+    
+    // ノードヘッダー（ステータス付き）
+    const nodeHeader = document.createElement('div');
+    nodeHeader.style.cssText = `
+        background: ${statusInfo.bgColor};
+        border-bottom: 1px solid #e5e7eb;
+        padding: 12px 16px;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    `;
+    
+    // 左側：展開アイコンとタイトル
+    const leftSection = document.createElement('div');
+    leftSection.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        cursor: pointer;
+    `;
+    
+    // 展開/折りたたみアイコン
+    const expandIcon = document.createElement('span');
+    // 全ノード表示では常にデフォルトで折り畳み状態にする
+    nodeCardCollapsed[nodeIndex] = true;
+    const isCollapsed = nodeCardCollapsed[nodeIndex];
+    expandIcon.textContent = isCollapsed ? '▶' : '▼';
+    expandIcon.style.cssText = `
+        font-size: 14px;
+        color: #6b7280;
+        transition: transform 0.2s ease;
+        user-select: none;
+        font-weight: bold;
+    `;
+    
+    const nodeTitle = document.createElement('div');
+    nodeTitle.style.cssText = `
+        font-weight: 600;
+        font-size: 16px;
+        color: #1f2937;
+        flex: 1;
+    `;
+    nodeTitle.textContent = `${getNodeDisplayNumber(nodeIndex)}. ${node}`;
+    
+    leftSection.appendChild(expandIcon);
+    leftSection.appendChild(nodeTitle);
+    
+    // 展開/折りたたみ機能
+    leftSection.onclick = (e) => {
+        e.stopPropagation();
+        toggleNodeCard(nodeIndex, expandIcon, tasksList, addTaskForm);
+    };
+    
+    const statusBadge = document.createElement('div');
+    statusBadge.style.cssText = `
+        background: ${statusInfo.color};
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    `;
+    statusBadge.innerHTML = `
+        <span>${statusInfo.label}</span>
+        <span style="font-size: 10px; margin-left: 4px;">⚙️</span>
+    `;
+    
+    // バッジ全体をクリック可能にする
+    statusBadge.onclick = (e) => {
+        e.stopPropagation();
+        openNodeStatusEditor(nodeIndex);
+    };
+    statusBadge.onmouseover = () => statusBadge.style.opacity = '0.8';
+    statusBadge.onmouseout = () => statusBadge.style.opacity = '1';
+    statusBadge.title = 'クリックしてステータスを変更';
+    statusBadge.style.cursor = 'pointer';
+    statusBadge.style.transition = 'opacity 0.2s ease';
+    
+    nodeHeader.appendChild(leftSection);
+    nodeHeader.appendChild(statusBadge);
+    
+    // タスクリスト
+    const tasksList = document.createElement('div');
+    tasksList.className = 'tasks-list';
+    tasksList.style.cssText = `
+        padding: 16px;
+    `;
+    
+    if (tasks.length === 0) {
+        tasksList.innerHTML = `
+            <div style="color: #6b7280; font-style: italic; text-align: center; padding: 20px;">
+                タスクがありません
+            </div>
+        `;
+    } else {
+        const completedCount = tasks.filter(t => t.completed).length;
+        const totalCount = tasks.length;
+        const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+        
+        
+        // 個別タスク（完了タスクは非表示）
+        tasks.filter(task => !task.completed).forEach(task => {
+            const taskItem = createTaskItemElement(nodeIndex, task);
+            tasksList.appendChild(taskItem);
+        });
+    }
+    
+    // タスク追加フォーム
+    const addTaskForm = document.createElement('div');
+    addTaskForm.style.cssText = `
+        padding: 16px;
+        border-top: 1px solid #f3f4f6;
+        background: #f9fafb;
+        border-radius: 0 0 8px 8px;
+    `;
+    addTaskForm.innerHTML = `
+        <div style="display: flex; gap: 8px;">
+            <input type="text" 
+                   id="add-task-input-${nodeIndex}" 
+                   placeholder="新しいタスクを追加..."
+                   style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px;"
+                   onkeypress="if(event.key==='Enter') addTaskToNodeFromAll(${nodeIndex})">
+            <button onclick="addTaskToNodeFromAll(${nodeIndex})"
+                    style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                追加
+            </button>
+        </div>
+    `;
+    
+    // 初期状態で折りたたみ状態を適用
+    if (isCollapsed) {
+        tasksList.style.display = 'none';
+        addTaskForm.style.display = 'none';
+    }
+    
+    nodeGroup.appendChild(nodeHeader);
+    nodeGroup.appendChild(tasksList);
+    nodeGroup.appendChild(addTaskForm);
+    container.appendChild(nodeGroup);
+}
+
+// ノードカードの展開/折りたたみ切り替え
+function toggleNodeCard(nodeIndex, expandIcon, tasksList, addTaskForm) {
+    const isCurrentlyCollapsed = nodeCardCollapsed[nodeIndex];
+    
+    if (isCurrentlyCollapsed) {
+        // 展開する
+        nodeCardCollapsed[nodeIndex] = false;
+        expandIcon.textContent = '▼';
+        tasksList.style.display = 'block';
+        addTaskForm.style.display = 'block';
+    } else {
+        // 折りたたむ
+        nodeCardCollapsed[nodeIndex] = true;
+        expandIcon.textContent = '▶';
+        tasksList.style.display = 'none';
+        addTaskForm.style.display = 'none';
+    }
+}
+
+// 全ノード表示からタスクを追加
+function addTaskToNodeFromAll(nodeIndex) {
+    const input = document.getElementById(`add-task-input-${nodeIndex}`);
+    const taskText = input.value.trim();
+    
+    if (!taskText) return;
+    
+    const taskId = addTaskToNode(nodeIndex, taskText);
+    if (taskId) {
+        input.value = '';
+        updateNodeTasksOnly(nodeIndex); // 該当ノードのタスクリストのみ更新
+        updateTaskNodeSelect(); // 個別ノード選択も更新
+    }
+}
+
+// 特定ノードのタスクリストのみを更新（折り畳み状態を保持）
+function updateNodeTasksOnly(nodeIndex) {
+    const nodeGroup = document.querySelector(`[data-node-group="${nodeIndex}"]`);
+    if (!nodeGroup) return;
+    
+    // 現在の折り畳み状態を保存
+    const currentCollapsedState = nodeCardCollapsed[nodeIndex];
+    
+    // タスクリスト部分のみを再構築
+    const tasksList = nodeGroup.querySelector('.tasks-list');
+    if (tasksList) {
+        // タスクリストを再生成
+        const tasks = getNodeTasks(nodeIndex);
+        tasksList.innerHTML = '';
+        
+        if (tasks.length === 0) {
+            tasksList.innerHTML = '<div style="padding: 16px; color: #9ca3af; text-align: center; font-style: italic;">タスクがありません</div>';
+        } else {
+            tasks.forEach(task => {
+                const taskItem = createTaskItemElement(nodeIndex, task);
+                tasksList.appendChild(taskItem);
+            });
+        }
+        
+        // 折り畳み状態を復元
+        nodeCardCollapsed[nodeIndex] = currentCollapsedState;
+        const expandIcon = nodeGroup.querySelector('.expand-icon');
+        const addTaskForm = nodeGroup.querySelector('[style*="border-top"]');
+        
+        if (currentCollapsedState) {
+            tasksList.style.display = 'none';
+            if (addTaskForm) addTaskForm.style.display = 'none';
+            if (expandIcon) expandIcon.textContent = '▶';
+        } else {
+            tasksList.style.display = 'block';
+            if (addTaskForm) addTaskForm.style.display = 'block';
+            if (expandIcon) expandIcon.textContent = '▼';
+        }
+    }
+    
+    // データの永続化
+    saveToLocalStorage();
+}
+
+// タスクアイテム要素を作成
+function createTaskItemElement(nodeIndex, task) {
+    const taskItem = document.createElement('div');
+    taskItem.className = 'task-item';
+    
+    // チェックボックス作成
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'task-checkbox';
+    checkbox.checked = task.completed;
+    checkbox.setAttribute('onchange', `toggleTaskCompletion(${nodeIndex}, '${task.id}')`);
+    checkbox.setAttribute('aria-label', 'タスク完了状態');
+    
+    // タスクテキスト作成（XSS対策のためtextContentを使用）
+    const taskTextSpan = document.createElement('span');
+    taskTextSpan.className = `task-text ${task.completed ? 'completed' : ''}`;
+    taskTextSpan.id = `task-text-${task.id}`;
+    taskTextSpan.textContent = task.text;
+    
+    // メニューコンテナ作成
+    const menuContainer = document.createElement('div');
+    menuContainer.className = 'task-menu';
+    menuContainer.innerHTML = `
+        <button class="task-menu-button" 
+            onclick="toggleTaskMenu('${task.id}')" 
+            aria-label="タスクメニューを開く"
+            aria-expanded="false"
+            aria-haspopup="menu">⋯</button>
+        <div class="task-menu-dropdown" 
+            id="menu-${task.id}" 
+            style="display: none;"
+            role="menu"
+            aria-hidden="true">
+            <button onclick="editTask(${nodeIndex}, '${task.id}')" role="menuitem">✏️ 編集</button>
+            <button onclick="deleteTask(${nodeIndex}, '${task.id}')" role="menuitem">🗑️ 削除</button>
+        </div>
+    `;
+    
+    // 要素を組み立て
+    taskItem.appendChild(checkbox);
+    taskItem.appendChild(taskTextSpan);
+    taskItem.appendChild(menuContainer);
+    
+    return taskItem;
+}
+
+// 全ノード表示でのタスク編集
+function editTaskInAllView(nodeIndex, taskId, taskTextElement) {
+    const currentText = taskTextElement.textContent;
+    
+    // 編集用input要素を作成
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentText;
+    input.className = 'task-edit-input';
+    input.className = 'task-edit-input-focused';
+    
+    // 保存・キャンセル関数
+    const saveEdit = () => {
+        const newText = input.value.trim();
+        if (newText && newText !== currentText) {
+            updateTaskText(nodeIndex, taskId, newText);
+            updateNodeTasksOnly(nodeIndex); // 該当ノードのみ更新
+        } else {
+            taskTextElement.textContent = currentText;
+            taskTextElement.style.display = '';
+        }
+        input.remove();
+    };
+    
+    const cancelEdit = () => {
+        taskTextElement.style.display = '';
+        input.remove();
+    };
+    
+    // イベントリスナー
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+        }
+    });
+    
+    input.addEventListener('blur', saveEdit);
+    
+    // spanを隠してinputを挿入
+    taskTextElement.style.display = 'none';
+    taskTextElement.parentNode.insertBefore(input, taskTextElement);
+    input.focus();
+    input.select();
+}
+
+// ノードステータス編集ダイアログを開く
+function openNodeStatusEditor(nodeIndex) {
+    const currentStatus = getNodeStatus(nodeIndex);
+    const statusOptions = Object.values(NODE_STATUSES);
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    `;
+    
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    `;
+    
+    dialog.innerHTML = `
+        <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">
+            ノードステータス変更
+        </h3>
+        <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 14px;">
+            「${getNodeDisplayNumber(nodeIndex)}. ${nodes[nodeIndex]}」
+        </p>
+        <div id="status-options" style="margin-bottom: 20px;"></div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button id="cancel-status" style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                キャンセル
+            </button>
+            <button id="save-status" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                保存
+            </button>
+        </div>
+    `;
+    
+    const optionsContainer = dialog.querySelector('#status-options');
+    let selectedStatus = currentStatus;
+    
+    statusOptions.forEach(status => {
+        const option = document.createElement('div');
+        option.style.cssText = `
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid ${status.id === currentStatus ? status.color : '#e5e7eb'};
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background: ${status.id === currentStatus ? status.bgColor : 'white'};
+            transition: all 0.2s ease;
+        `;
+        
+        option.innerHTML = `
+            <input type="radio" 
+                   name="nodeStatus" 
+                   value="${status.id}" 
+                   ${status.id === currentStatus ? 'checked' : ''}
+                   style="margin-right: 12px;">
+            <div style="flex: 1;">
+                <div style="font-weight: 500; color: ${status.color};">${status.label}</div>
+            </div>
+        `;
+        
+        option.onclick = () => {
+            // 全ての選択を解除（直接の子要素のみ）
+            Array.from(optionsContainer.children).forEach(opt => {
+                opt.style.border = '2px solid #e5e7eb';
+                opt.style.background = 'white';
+                const radio = opt.querySelector('input[type="radio"]');
+                if (radio) {
+                    radio.checked = false;
+                }
+            });
+            
+            // 選択されたオプションをハイライト
+            option.style.border = `2px solid ${status.color}`;
+            option.style.background = status.bgColor;
+            const radio = option.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.checked = true;
+            }
+            selectedStatus = status.id;
+        };
+        
+        optionsContainer.appendChild(option);
+    });
+    
+    // イベントリスナー
+    dialog.querySelector('#cancel-status').onclick = () => {
+        document.body.removeChild(modal);
+    };
+    
+    dialog.querySelector('#save-status').onclick = () => {
+        setNodeStatus(nodeIndex, selectedStatus);
+        renderAllNodesTasks(); // 全体を再描画
+        
+        // 個別ノード管理のタスクリストも更新（選択中の場合）
+        if (selectedNodeIndex === nodeIndex) {
+            renderTaskList(nodeIndex);
+        }
+        
+        // ノード選択のドロップダウンも更新
+        updateTaskNodeSelect();
+        
+        document.body.removeChild(modal);
+    };
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    };
+    
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
+}
+
+// ノード削除時のステータスクリーンアップ
+function cleanupNodeStatusAfterDeletion(deletedIndex) {
+    // 削除されたノードのステータスを削除
+    delete nodeStatuses[deletedIndex];
+    
+    // インデックス調整
+    const newNodeStatuses = {};
+    
+    Object.keys(nodeStatuses).forEach(nodeIndexStr => {
+        const nodeIndex = parseInt(nodeIndexStr);
+        
+        if (nodeIndex > deletedIndex) {
+            newNodeStatuses[nodeIndex - 1] = nodeStatuses[nodeIndex];
+        } else {
+            newNodeStatuses[nodeIndex] = nodeStatuses[nodeIndex];
+        }
+    });
+    
+    nodeStatuses = newNodeStatuses;
+}
+
+// ノード削除時の折りたたみ状態クリーンアップ
+function cleanupNodeCardStateAfterDeletion(deletedIndex) {
+    // 削除されたノードの折りたたみ状態を削除
+    delete nodeCardCollapsed[deletedIndex];
+    
+    // インデックス調整
+    const newNodeCardCollapsed = {};
+    
+    Object.keys(nodeCardCollapsed).forEach(nodeIndexStr => {
+        const nodeIndex = parseInt(nodeIndexStr);
+        
+        if (nodeIndex > deletedIndex) {
+            newNodeCardCollapsed[nodeIndex - 1] = nodeCardCollapsed[nodeIndex];
+        } else {
+            newNodeCardCollapsed[nodeIndex] = nodeCardCollapsed[nodeIndex];
+        }
+    });
+    
+    nodeCardCollapsed = newNodeCardCollapsed;
+}
+
+// タスクシステム初期化
+function initializeTaskSystem() {
+    // データが空の場合のみ初期化（LocalStorageから読み込まれた場合は保持）
+    if (Object.keys(nodeTasks).length === 0) {
+        // サンプルタスクを追加
+        addSampleTasks();
+    }
+    
+    // selectedNodeIndexは常にリセット
+    selectedNodeIndex = null;
+    
+    // UI初期化
+    updateTaskNodeSelect();
+    setupTaskInputHandlers();
+    
+    console.log('Task system initialized');
+}
+
+// サンプルタスクの追加
+function addSampleTasks() {
+    // ノード0（行き：持っていくべきものが決まってない）にサンプルタスクを追加
+    nodeTasks[0] = [
+        {
+            id: "task_sample_1",
+            text: "パスポート・身分証明書の確認",
+            completed: true
+        },
+        {
+            id: "task_sample_2",
+            text: "旅行先の気候調査",
+            completed: false
+        },
+        {
+            id: "task_sample_3",
+            text: "持参する衣類リスト作成",
+            completed: false
+        }
+    ];
+    
+    // ノード1にもサンプルタスクを追加
+    nodeTasks[1] = [
+        {
+            id: "task_sample_4",
+            text: "新幹線の座席予約",
+            completed: false
+        }
+    ];
+    
+    // サンプルノードステータスを設定
+    nodeStatuses[0] = 'in_progress';  // 進行中
+    nodeStatuses[1] = 'not_started';  // 未着手
+    nodeStatuses[2] = 'completed';    // 完了
+}
+
+function setupTaskInputHandlers() {
+    const taskInput = document.getElementById('new-task-input');
+    if (taskInput) {
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addNewTask();
+            }
+        });
+    }
+    
+    // メニュー外クリックで閉じる
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.task-menu')) {
+            closeAllTaskMenus();
+        }
+    });
+}
+
+// プレビューパネルタブの設定
+function setupPreviewTabs() {
+    const tabButtons = document.querySelectorAll('.preview-tab-button');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const targetTab = this.dataset.previewTab;
+            switchPreviewTab(targetTab);
+        });
+    });
+    
+    // 初期状態で全ノード表示タブをアクティブにする
+    switchPreviewTab('all-tasks');
+}
+
+function switchPreviewTab(activeTab) {
+    // タブボタンの状態を更新
+    const tabButtons = document.querySelectorAll('.preview-tab-button');
+    tabButtons.forEach(button => {
+        if (button.dataset.previewTab === activeTab) {
+            button.classList.add('active');
+        } else {
+            button.classList.remove('active');
+        }
+    });
+    
+    // セクションの表示状態を更新
+    const sections = document.querySelectorAll('[data-preview-section]');
+    sections.forEach(section => {
+        if (section.dataset.previewSection === activeTab) {
+            section.style.display = 'block';
+        } else {
+            section.style.display = 'none';
+        }
+    });
+    
+    // タスクセクションが選択された場合の特別処理
+    if (activeTab === 'tasks') {
+        // タスクリストコンテナを表示状態に戻す（以前に選択されていた場合）
+        if (selectedNodeIndex !== null) {
+            showTaskList();
+        }
+    }
+    
+    // 全ノードタスクセクションが選択された場合の特別処理
+    if (activeTab === 'all-tasks') {
+        renderAllNodesTasks();
     }
 }
 
