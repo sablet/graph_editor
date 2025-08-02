@@ -435,8 +435,11 @@ function renderAllNodeTasks() {
         return;
     }
     
-    nodes.forEach((node, nodeIndex) => {
-        createNodeTaskCard(nodeIndex, container);
+    // 共通の階層情報付きノードリストを使用
+    const hierarchicalNodeInfo = getHierarchicalNodeInfo();
+    
+    hierarchicalNodeInfo.forEach(nodeInfo => {
+        createNodeTaskCard(nodeInfo.nodeIndex, container, nodeInfo.depth, nodeInfo.isChild);
     });
 }
 
@@ -444,14 +447,22 @@ function renderAllNodeTasks() {
  * ノードタスクカードを作成
  * @param {number} nodeIndex - ノードのインデックス
  * @param {HTMLElement} container - コンテナ要素
+ * @param {number} depth - 階層の深さ（デフォルト: 0）
+ * @param {boolean} isChild - 子ノードかどうか（デフォルト: false）
  */
-function createNodeTaskCard(nodeIndex, container) {
+function createNodeTaskCard(nodeIndex, container, depth = 0, isChild = false) {
     const tasks = getNodeTasks(nodeIndex);
     const statusInfo = getNodeStatusInfo(nodeIndex);
     
     const nodeGroup = document.createElement('div');
     nodeGroup.className = 'node-task-group';
     nodeGroup.setAttribute('data-node-group', nodeIndex);
+    
+    // 階層インデントを適用
+    const indentStyle = getIndentStyle(depth, isChild);
+    if (indentStyle) {
+        nodeGroup.style.cssText += indentStyle;
+    }
     
     // ノードヘッダー（ステータス付き）
     const nodeHeader = document.createElement('div');

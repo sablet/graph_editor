@@ -222,6 +222,125 @@ function deleteNode(index) {
 }
 
 /**
+ * 階層順序でソートされたノードインデックス配列を取得（共通関数）
+ * @returns {Array} ソート済みのノードインデックス配列
+ */
+function getHierarchicalNodeOrder() {
+    // 階層関係がない場合は通常順序を返す
+    if (nodeHierarchy.length === 0) {
+        return Array.from({length: nodes.length}, (_, i) => i);
+    }
+    
+    // すべての子ノードのインデックスを取得
+    const childIndices = new Set();
+    nodeHierarchy.forEach(hier => {
+        hier.children.forEach(childIndex => {
+            childIndices.add(childIndex);
+        });
+    });
+    
+    // 親ノードと独立ノードを先に収集
+    const parentAndStandaloneNodes = [];
+    for (let i = 0; i < nodes.length; i++) {
+        if (!childIndices.has(i)) {
+            parentAndStandaloneNodes.push(i);
+        }
+    }
+    
+    // 階層順序でソート
+    const result = [];
+    
+    parentAndStandaloneNodes.forEach(nodeIndex => {
+        // 親ノードまたは独立ノードを追加
+        result.push(nodeIndex);
+        
+        // 子ノードがある場合は子ノードも追加
+        const hierarchy = nodeHierarchy.find(hier => hier.parent === nodeIndex);
+        if (hierarchy) {
+            // 子ノードをインデックス順序でソート
+            const sortedChildren = [...hierarchy.children].sort((a, b) => a - b);
+            result.push(...sortedChildren);
+        }
+    });
+    
+    return result;
+}
+
+/**
+ * 階層情報付きノードリストを取得（インデント処理用）
+ * @returns {Array} {nodeIndex, depth, isChild, parentIndex}の配列
+ */
+function getHierarchicalNodeInfo() {
+    const result = [];
+    
+    if (nodeHierarchy.length === 0) {
+        // 階層関係がない場合
+        for (let i = 0; i < nodes.length; i++) {
+            result.push({
+                nodeIndex: i,
+                depth: 0,
+                isChild: false,
+                parentIndex: null
+            });
+        }
+        return result;
+    }
+    
+    // すべての子ノードのインデックスを取得
+    const childIndices = new Set();
+    nodeHierarchy.forEach(hier => {
+        hier.children.forEach(childIndex => {
+            childIndices.add(childIndex);
+        });
+    });
+    
+    // 親ノードと独立ノードを先に収集
+    const parentAndStandaloneNodes = [];
+    for (let i = 0; i < nodes.length; i++) {
+        if (!childIndices.has(i)) {
+            parentAndStandaloneNodes.push(i);
+        }
+    }
+    
+    // 再帰的に階層情報を構築
+    function addNodeRecursively(nodeIndex, depth = 0, parentIndex = null) {
+        const isChild = depth > 0;
+        result.push({
+            nodeIndex,
+            depth,
+            isChild,
+            parentIndex
+        });
+        
+        // 子ノードがある場合は再帰的に追加
+        const hierarchy = nodeHierarchy.find(hier => hier.parent === nodeIndex);
+        if (hierarchy) {
+            // 子ノードをインデックス順序でソート
+            const sortedChildren = [...hierarchy.children].sort((a, b) => a - b);
+            sortedChildren.forEach(childIndex => {
+                addNodeRecursively(childIndex, depth + 1, nodeIndex);
+            });
+        }
+    }
+    
+    parentAndStandaloneNodes.forEach(nodeIndex => {
+        addNodeRecursively(nodeIndex, 0);
+    });
+    
+    return result;
+}
+
+/**
+ * 階層の深さに基づくインデントスタイルを取得（共通関数）
+ * @param {number} depth - 階層の深さ
+ * @param {boolean} isChild - 子ノードかどうか
+ * @returns {string} CSSスタイル文字列
+ */
+function getIndentStyle(depth, isChild) {
+    return isChild ? `margin-left: ${depth * 20}px;` : '';
+}
+
+/**
  * ノード一覧を表示（階層対応・折りたたみ）
  */
 function renderNodes() {
@@ -238,7 +357,10 @@ function renderNodes() {
         return;
     }
     
-    // すべての子ノードのインデックスを取得
+    // 共通の階層順序取得関数を使用
+    const sortedIndices = getHierarchicalNodeOrder();
+    
+    // 各ノードを表示（再帰的な表示は従来通り）
     const childIndices = new Set();
     nodeHierarchy.forEach(hier => {
         hier.children.forEach(childIndex => {
@@ -246,7 +368,6 @@ function renderNodes() {
         });
     });
     
-    // 親ノードと独立ノードを先に表示
     const parentAndStandaloneNodes = [];
     for (let i = 0; i < nodes.length; i++) {
         if (!childIndices.has(i)) {
@@ -321,7 +442,7 @@ function renderNodeItem(node, index, isChild = false, parentIndex = null, depth 
         expandIconHtml = `<span class="expand-icon ${isCollapsed ? '' : 'expanded'}" onclick="toggleChildNodes(${index}, this)">▶</span>`;
     }
     
-    const indentStyle = isChild ? `margin-left: ${depth * 20}px;` : '';
+    const indentStyle = getIndentStyle(depth, isChild);
     const nodeNumber = getNodeDisplayNumber(index);
     
     nodeItem.innerHTML = `
@@ -521,7 +642,7 @@ function renderUnifiedCheckboxItem(node, index, isChild = false, container, pare
         expandIconHtml = `<span class="expand-icon-checkbox ${isCollapsed ? '' : 'expanded'}" onclick="toggleChildCheckboxes(${index}, this)" style="margin-right: 8px; font-size: 12px; color: #059669; font-weight: bold; cursor: pointer; user-select: none;">▶</span>`;
     }
     
-    const indentStyle = isChild ? `margin-left: ${depth * 20}px;` : '';
+    const indentStyle = getIndentStyle(depth, isChild);
     const nodeNumber = getNodeDisplayNumber(index);
     
     checkboxItem.innerHTML = `
