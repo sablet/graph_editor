@@ -15,7 +15,6 @@ const STORAGE_KEYS = {
     NODE_TASKS: 'graphEditor_nodeTasks',
     NODE_STATUSES: 'graphEditor_nodeStatuses',
     NODE_CARD_COLLAPSED: 'graphEditor_nodeCardCollapsed',
-    NODE_CHAT_HISTORY: 'graphEditor_nodeChatHistory',
     FLAT_TASK_GROUP_COLLAPSED: 'graphEditor_flatTaskGroupCollapsed',
     DATA_VERSION: 'graphEditor_dataVersion',
     // プロジェクト管理
@@ -68,7 +67,6 @@ function createDefaultProject(name = '新しいプロジェクト', description 
             nodeTasks: {},
             nodeStatuses: {},
             nodeCardCollapsed: {},
-            nodeChatHistory: {}
         }
     };
 }
@@ -144,7 +142,6 @@ function saveCurrentProjectData() {
             nodeTasks: {...nodeTasks},
             nodeStatuses: {...nodeStatuses},
             nodeCardCollapsed: {...nodeCardCollapsed},
-            nodeChatHistory: {...nodeChatHistory},
             projectChatHistory: [...projectChatHistory],
             flatTaskGroupCollapsed: {...flatTaskGroupCollapsed}
         };
@@ -164,7 +161,6 @@ function loadProjectData(project) {
     nodeTasks = {...project.data.nodeTasks};
     nodeStatuses = {...project.data.nodeStatuses};
     nodeCardCollapsed = {...project.data.nodeCardCollapsed};
-    nodeChatHistory = {...(project.data.nodeChatHistory || {})};
     projectChatHistory = [...(project.data.projectChatHistory || [])];
     flatTaskGroupCollapsed = {
         ...DEFAULT_FLAT_TASK_GROUP_COLLAPSED,
@@ -201,12 +197,6 @@ function cleanupOrphanedData() {
     });
     
     // 存在しないノードのチャット履歴を削除
-    Object.keys(nodeChatHistory).forEach(nodeIndexStr => {
-        const nodeIndex = parseInt(nodeIndexStr);
-        if (nodeIndex >= nodes.length) {
-            delete nodeChatHistory[nodeIndex];
-        }
-    });
     
     // 存在しないノードの階層関係を削除
     nodeHierarchy = nodeHierarchy.filter(hier => 
@@ -319,7 +309,6 @@ function saveToLocalStorageImmediate() {
             localStorage.setItem(STORAGE_KEYS.NODE_TASKS, JSON.stringify(nodeTasks));
             localStorage.setItem(STORAGE_KEYS.NODE_STATUSES, JSON.stringify(nodeStatuses));
             localStorage.setItem(STORAGE_KEYS.NODE_CARD_COLLAPSED, JSON.stringify(nodeCardCollapsed));
-            localStorage.setItem(STORAGE_KEYS.NODE_CHAT_HISTORY, JSON.stringify(nodeChatHistory));
             localStorage.setItem(STORAGE_KEYS.PROJECT_CHAT_HISTORY, JSON.stringify(projectChatHistory));
             localStorage.setItem(STORAGE_KEYS.FLAT_TASK_GROUP_COLLAPSED, JSON.stringify(flatTaskGroupCollapsed));
         }
@@ -371,7 +360,6 @@ function loadFromLocalStorage() {
         const savedNodeTasks = localStorage.getItem(STORAGE_KEYS.NODE_TASKS);
         const savedNodeStatuses = localStorage.getItem(STORAGE_KEYS.NODE_STATUSES);
         const savedNodeCardCollapsed = localStorage.getItem(STORAGE_KEYS.NODE_CARD_COLLAPSED);
-        const savedNodeChatHistory = localStorage.getItem(STORAGE_KEYS.NODE_CHAT_HISTORY);
         const savedProjectChatHistory = localStorage.getItem(STORAGE_KEYS.PROJECT_CHAT_HISTORY);
         const savedFlatTaskGroupCollapsed = localStorage.getItem(STORAGE_KEYS.FLAT_TASK_GROUP_COLLAPSED);
         
@@ -412,11 +400,6 @@ function loadFromLocalStorage() {
             nodeCardCollapsed = {};
         }
         
-        if (savedNodeChatHistory) {
-            nodeChatHistory = JSON.parse(savedNodeChatHistory);
-        } else {
-            nodeChatHistory = {};
-        }
         
         if (savedProjectChatHistory) {
             projectChatHistory = JSON.parse(savedProjectChatHistory);
@@ -450,7 +433,6 @@ function initializeWithDefaultData() {
     nodeTasks = {};
     nodeStatuses = {};
     nodeCardCollapsed = {};
-    nodeChatHistory = {};
     projectChatHistory = [];
     flatTaskGroupCollapsed = {...DEFAULT_FLAT_TASK_GROUP_COLLAPSED};
     console.log('Initialized with default data');
@@ -502,7 +484,6 @@ function exportData() {
             nodeTasks: nodeTasks,
             nodeStatuses: nodeStatuses,
             nodeCardCollapsed: nodeCardCollapsed,
-            nodeChatHistory: nodeChatHistory
         }
     };
     
@@ -566,7 +547,6 @@ function importData(importDataString) {
                 nodeTasks: dataToImport.nodeTasks || {},
                 nodeStatuses: dataToImport.nodeStatuses || {},
                 nodeCardCollapsed: dataToImport.nodeCardCollapsed || {},
-                nodeChatHistory: dataToImport.nodeChatHistory || {}
             };
             
             // 新しいプロジェクトに切り替え
@@ -678,142 +658,7 @@ function getLastActiveTab() {
 
 // ===== チャット履歴管理機能 =====
 
-/**
- * チャットメッセージIDを生成
- */
-function generateChatMessageId() {
-    return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
 
-/**
- * ノードにチャットメッセージを追加
- * @param {number} nodeIndex - ノードのインデックス
- * @param {string} content - メッセージ内容
- * @param {string} type - メッセージタイプ ('user', 'assistant', 'system')
- * @returns {object} 追加されたメッセージオブジェクト
- */
-function addChatMessage(nodeIndex, content, type = 'user') {
-    if (!nodeChatHistory[nodeIndex]) {
-        nodeChatHistory[nodeIndex] = [];
-    }
-    
-    const message = {
-        id: generateChatMessageId(),
-        content: content.trim(),
-        timestamp: new Date().toISOString(),
-        type: type
-    };
-    
-    nodeChatHistory[nodeIndex].push(message);
-    
-    // デバウンス版の保存を使用してパフォーマンスを改善
-    saveToLocalStorage();
-    
-    return message;
-}
-
-/**
- * ノードのチャット履歴を取得
- * @param {number} nodeIndex - ノードのインデックス
- * @returns {Array} チャットメッセージの配列
- */
-function getChatHistory(nodeIndex) {
-    return nodeChatHistory[nodeIndex] || [];
-}
-
-/**
- * 特定のチャットメッセージを削除
- * @param {number} nodeIndex - ノードのインデックス
- * @param {string} messageId - メッセージID
- * @returns {boolean} 削除成功の場合true
- */
-function deleteChatMessage(nodeIndex, messageId) {
-    if (!nodeChatHistory[nodeIndex]) {
-        return false;
-    }
-    
-    const originalLength = nodeChatHistory[nodeIndex].length;
-    nodeChatHistory[nodeIndex] = nodeChatHistory[nodeIndex].filter(msg => msg.id !== messageId);
-    
-    const deleted = nodeChatHistory[nodeIndex].length < originalLength;
-    
-    if (deleted) {
-        // デバウンス版の保存を使用してパフォーマンスを改善
-        saveToLocalStorage();
-    }
-    
-    return deleted;
-}
-
-/**
- * ノードのチャット履歴を全て削除
- * @param {number} nodeIndex - ノードのインデックス
- * @returns {boolean} 削除成功の場合true
- */
-function clearNodeChatHistory(nodeIndex) {
-    if (nodeChatHistory[nodeIndex]) {
-        delete nodeChatHistory[nodeIndex];
-        
-        // デバウンス版の保存を使用してパフォーマンスを改善
-        saveToLocalStorage();
-        
-        return true;
-    }
-    return false;
-}
-
-/**
- * チャットメッセージを更新
- * @param {number} nodeIndex - ノードのインデックス
- * @param {string} messageId - メッセージID
- * @param {string} newContent - 新しいメッセージ内容
- * @returns {boolean} 更新成功の場合true
- */
-function updateChatMessage(nodeIndex, messageId, newContent) {
-    if (!nodeChatHistory[nodeIndex]) {
-        return false;
-    }
-    
-    const message = nodeChatHistory[nodeIndex].find(msg => msg.id === messageId);
-    if (message) {
-        message.content = newContent.trim();
-        message.timestamp = new Date().toISOString(); // 更新時刻を記録
-        
-        // デバウンス版の保存を使用してパフォーマンスを改善
-        saveToLocalStorage();
-        
-        return true;
-    }
-    
-    return false;
-}
-
-/**
- * ノード削除後のチャット履歴クリーンアップ
- * @param {number} deletedNodeIndex - 削除されたノードのインデックス
- */
-function cleanupChatHistoryAfterNodeDeletion(deletedNodeIndex) {
-    // 削除されたノードのチャット履歴を削除
-    if (nodeChatHistory[deletedNodeIndex]) {
-        delete nodeChatHistory[deletedNodeIndex];
-    }
-    
-    // インデックスが大きいノードのチャット履歴を調整
-    const newChatHistory = {};
-    Object.keys(nodeChatHistory).forEach(nodeIndexStr => {
-        const nodeIndex = parseInt(nodeIndexStr);
-        if (nodeIndex > deletedNodeIndex) {
-            // インデックスを-1
-            newChatHistory[nodeIndex - 1] = nodeChatHistory[nodeIndex];
-        } else if (nodeIndex < deletedNodeIndex) {
-            // そのまま維持
-            newChatHistory[nodeIndex] = nodeChatHistory[nodeIndex];
-        }
-        // deletedNodeIndex と同じインデックスは削除（上で既に削除済み）
-    });
-    
-    nodeChatHistory = newChatHistory;
-}
 
 // ===== プロジェクト全体チャット履歴管理 =====
 

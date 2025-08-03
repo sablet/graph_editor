@@ -5,7 +5,6 @@
 
 // メモ機能の初期化用変数
 let selectedMemoNodeIndex = null;
-let nodeChatHistory = {}; // dataManager.jsで定義されているグローバル変数
 
 // ===== メモ表示機能 =====
 

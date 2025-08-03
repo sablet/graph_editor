@@ -1189,120 +1189,100 @@
             background: #4b5563;
         }
         
-        /* プロジェクト全体チャット関連のスタイル */
-        .project-chat-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
         
-        .project-chat-modal-content {
-            background: white;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 700px;
-            max-height: 90%;
+        /* ノードタブ関連のスタイル */
+        .node-tabs {
             display: flex;
-            flex-direction: column;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-        
-        .project-chat-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
             border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 20px;
             background: #f9fafb;
-            border-radius: 12px 12px 0 0;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
         }
         
-        .project-chat-header h3 {
-            margin: 0;
-            color: #374151;
-            font-size: 18px;
-            font-weight: 600;
-        }
-        
-        .close-button {
-            background: none;
+        .node-tab-button {
+            flex: 1;
+            padding: 12px 16px;
+            background: #f9fafb;
             border: none;
-            font-size: 24px;
             color: #6b7280;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: background-color 0.2s ease;
+            transition: all 0.2s ease;
+            border-bottom: 3px solid transparent;
         }
         
-        .close-button:hover {
-            background: #e5e7eb;
+        .node-tab-button:hover {
+            background: #f3f4f6;
             color: #374151;
         }
         
-        .project-chat-body {
+        .node-tab-button.active {
+            background: white;
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .node-tab-content {
+            background: white;
+            border-radius: 0 0 8px 8px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+        }
+        
+        /* 埋め込みプロジェクトチャット関連のスタイル */
+        .project-chat-embedded {
+            height: calc(100vh - 200px);
             display: flex;
             flex-direction: column;
-            height: 600px;
         }
         
-        .task-association-section {
-            padding: 16px 20px;
-            border-bottom: 1px solid #e5e7eb;
+        .embedded-chat-history {
+            flex: 1;
+            overflow-y: auto;
+            height: calc(100vh - 300px);
+            max-height: calc(100vh - 300px);
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        
+        .embedded-chat-input-section {
             background: #f8fafc;
+            border-radius: 6px;
+            padding: 12px;
         }
         
-        .task-association-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .task-association-header span {
-            font-weight: 600;
-            color: #374151;
-            font-size: 14px;
-        }
-        
-        .task-clear-button {
-            background: #e5e7eb;
-            color: #6b7280;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        
-        .task-clear-button:hover {
-            background: #d1d5db;
-            color: #374151;
-        }
-        
-        .task-association-select {
+        .embedded-chat-input {
             width: 100%;
+            min-height: 60px;
             padding: 8px 12px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
             font-size: 14px;
-            background: white;
+            line-height: 1.5;
             color: #374151;
+            resize: vertical;
+            font-family: inherit;
+            background: white;
+            transition: border-color 0.2s ease;
         }
         
-        .project-chat-history {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px 20px;
-            background: #fafafa;
+        .embedded-chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+        
+        .embedded-chat-input-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
         }
         
         .chat-empty {
@@ -1328,22 +1308,6 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
-        }
-        
-        .association-label {
-            position: absolute;
-            bottom: -2px;
-            right: 0;
-            font-size: 10px;
-            font-weight: 500;
-            color: #6b7280;
-            background: #f3f4f6;
-            padding: 2px 6px;
-            border-radius: 12px;
-            white-space: nowrap;
-            max-width: 150px;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
         
         .message-timestamp {
@@ -1381,10 +1345,45 @@
             padding: 0;
         }
         
-        .message-menu-dropdown {
+        .association-label {
             position: absolute;
-            top: 100%;
+            bottom: -2px;
             right: 0;
+            font-size: 10px;
+            font-weight: 500;
+            color: #6b7280;
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 12px;
+            white-space: nowrap;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .input-hint {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .send-button {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .send-button:hover {
+            background: #7c3aed;
+        }
+        
+        .message-menu-dropdown {
+            position: fixed;
             background: white;
             border: 1px solid #d1d5db;
             border-radius: 6px;
@@ -1423,62 +1422,6 @@
         
         .message-menu-dropdown button.delete-action:hover {
             background-color: #fef2f2;
-        }
-        
-        .project-chat-input-section {
-            padding: 16px 20px;
-            border-top: 1px solid #e5e7eb;
-            background: white;
-            border-radius: 0 0 12px 12px;
-        }
-        
-        .project-chat-input {
-            width: 100%;
-            min-height: 60px;
-            padding: 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #374151;
-            resize: vertical;
-            font-family: inherit;
-            background: white;
-            transition: border-color 0.2s ease;
-        }
-        
-        .project-chat-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-        }
-        
-        .project-chat-input-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 12px;
-        }
-        
-        .input-hint {
-            font-size: 12px;
-            color: #6b7280;
-        }
-        
-        .send-button {
-            background: #8b5cf6;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        
-        .send-button:hover {
-            background: #7c3aed;
         }
         
         /* メッセージ編集スタイル */
@@ -1533,100 +1476,6 @@
         
         .message-edit-cancel:hover {
             background: #4b5563;
-        }
-        
-        /* ノードタブ関連のスタイル */
-        .node-tabs {
-            display: flex;
-            border-bottom: 1px solid #e5e7eb;
-            margin-bottom: 20px;
-            background: #f9fafb;
-            border-radius: 8px 8px 0 0;
-            overflow: hidden;
-        }
-        
-        .node-tab-button {
-            flex: 1;
-            padding: 12px 16px;
-            background: #f9fafb;
-            border: none;
-            color: #6b7280;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border-bottom: 3px solid transparent;
-        }
-        
-        .node-tab-button:hover {
-            background: #f3f4f6;
-            color: #374151;
-        }
-        
-        .node-tab-button.active {
-            background: white;
-            color: #3b82f6;
-            border-bottom-color: #3b82f6;
-        }
-        
-        .node-tab-content {
-            background: white;
-            border-radius: 0 0 8px 8px;
-            padding: 20px;
-            border: 1px solid #e5e7eb;
-            border-top: none;
-        }
-        
-        /* 埋め込みプロジェクトチャット関連のスタイル */
-        .project-chat-embedded {
-            max-height: 500px;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .embedded-chat-history {
-            flex: 1;
-            overflow-y: auto;
-            max-height: 300px;
-            padding: 12px;
-            background: #fafafa;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            margin-bottom: 16px;
-        }
-        
-        .embedded-chat-input-section {
-            background: #f8fafc;
-            border-radius: 6px;
-            padding: 12px;
-        }
-        
-        .embedded-chat-input {
-            width: 100%;
-            min-height: 60px;
-            padding: 8px 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #374151;
-            resize: vertical;
-            font-family: inherit;
-            background: white;
-            transition: border-color 0.2s ease;
-        }
-        
-        .embedded-chat-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-        }
-        
-        .embedded-chat-input-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 8px;
         }
         
         /* フラットタスクリスト関連のスタイル */
@@ -2023,47 +1872,6 @@
         </div>
     </div>
 
-    <!-- プロジェクト全体チャット画面 -->
-    <div id="project-chat-modal" class="project-chat-modal" style="display: none;">
-        <div class="project-chat-modal-content">
-            <div class="project-chat-header">
-                <h3>📱 プロジェクト全体チャット</h3>
-                <button class="close-button" onclick="closeProjectChat()">&times;</button>
-            </div>
-            
-            <div class="project-chat-body">
-                <!-- タスク関連付け設定 -->
-                <div class="task-association-section">
-                    <div class="task-association-header">
-                        <span>📌 関連タスク設定</span>
-                        <button class="task-clear-button" onclick="clearTaskAssociation()">クリア</button>
-                    </div>
-                    <select id="task-association-select" class="task-association-select">
-                        <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
-                        <!-- ノードオプションは動的に追加 -->
-                    </select>
-                </div>
-                
-                <!-- チャット履歴表示エリア -->
-                <div class="project-chat-history" id="project-chat-history">
-                    <!-- チャットメッセージがここに表示される -->
-                </div>
-                
-                <!-- メッセージ入力エリア -->
-                <div class="project-chat-input-section">
-                    <textarea 
-                        id="project-chat-input" 
-                        class="project-chat-input" 
-                        placeholder="新しいメッセージを入力... (Ctrl+Enterで送信)"
-                        rows="3"></textarea>
-                    <div class="project-chat-input-actions">
-                        <span class="input-hint">Ctrl+Enter: 送信</span>
-                        <button class="send-button" onclick="sendProjectChatMessage()">送信</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="dataManager.js"></script>
     <script src="taskManager.js"></script>

@@ -11,7 +11,7 @@ let currentSelectedNodeIndex = null;
 
 /**
  * ノードタブを切り替え
- * @param {string} tabName - タブ名 ('tasks', 'chat', 'project-chat')
+ * @param {string} tabName - タブ名 ('tasks', 'project-chat')
  */
 function switchNodeTab(tabName) {
     // タブボタンの状態更新
@@ -52,13 +52,6 @@ function onNodeTabSwitched(tabName) {
     switch (tabName) {
         case 'tasks':
             // タスクタブ：特に追加処理なし（既存の機能が動作）
-            break;
-            
-        case 'chat':
-            // ノードチャットタブ：メモを表示
-            if (typeof showNodeMemos === 'function') {
-                showNodeMemos(currentSelectedNodeIndex);
-            }
             break;
             
         case 'project-chat':
@@ -146,13 +139,16 @@ function renderEmbeddedProjectChatHistory() {
     
     historyContainer.innerHTML = '';
     
-    // メッセージを新しい順に表示
-    const sortedMessages = [...messages].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // メッセージを古い順に表示（新しいメッセージが下に来る）
+    const sortedMessages = [...messages].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     
     sortedMessages.forEach(message => {
         const messageElement = createEmbeddedChatMessageElement(message);
         historyContainer.appendChild(messageElement);
     });
+    
+    // 一番下までスクロール
+    scrollChatToBottom(historyContainer);
 }
 
 /**
@@ -452,5 +448,19 @@ function initializeNodeTabFeatures() {
 }
 
 // ===== ユーティリティ関数 =====
+
+/**
+ * チャット履歴コンテナを一番下までスクロール
+ * @param {HTMLElement} container - スクロール対象のコンテナ
+ */
+function scrollChatToBottom(container) {
+    if (container) {
+        // 少し遅延を入れてからスクロール（DOMの更新を待つ）
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 50);
+    }
+}
+
 // 注意: escapeHtml, formatTimestamp, getAssociationLabelは
 // app.jsの共通ユーティリティ関数を使用してください
