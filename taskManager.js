@@ -1026,8 +1026,7 @@ document.addEventListener('click', function(e) {
     }
 }, true); // キャプチャフェーズで実行
 
-// グループの折りたたみ状態を管理
-let flatTaskGroupCollapsed = {...DEFAULT_FLAT_TASK_GROUP_COLLAPSED};
+// グループの折りたたみ状態を管理（dataManager.jsで定義済み）
 
 // タスクグループ設定
 const TASK_GROUP_CONFIG = {

@@ -31,23 +31,20 @@
         
         .main-content {
             display: grid;
-            grid-template-columns: 3fr 3fr 4fr;
+            grid-template-columns: 1fr 1fr;
             min-height: 800px;
         }
         
-        .nodes-panel {
-            padding: 20px;
+        .left-panel {
+            padding: 20px 20px 80px 20px;
             border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
         }
         
-        .relations-panel {
-            padding: 20px;
-            border-right: 1px solid #e5e7eb;
-        }
-        
-        .preview-panel {
-            padding: 20px;
+        .right-panel {
+            padding: 20px 20px 80px 20px;
             background-color: #f9fafb;
+            overflow-y: auto;
         }
         
         .section {
@@ -403,6 +400,52 @@
             cursor: grabbing;
         }
         
+        /* タスク関連付けセクションのスタイル */
+        .task-association-section {
+            margin-bottom: 15px;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+            padding: 12px;
+        }
+        
+        .task-association-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .task-association-header span {
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+        
+        .task-clear-button {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .task-clear-button:hover {
+            background: #4b5563;
+        }
+        
+        .task-association-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            color: #1f2937;
+        }
+        
         /* タスク管理スタイル */
         .task-node-selector {
             margin-bottom: 15px;
@@ -688,16 +731,19 @@
             flex: 1;
             background: transparent;
             border: none;
-            padding: 12px 8px;
+            padding: 8px 4px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
-            font-size: 12px;
+            gap: 2px;
+            font-size: 10px;
             color: #6b7280;
             cursor: pointer;
             transition: all 0.2s;
             border-bottom: 2px solid transparent;
+            min-width: 0;
+            text-overflow: ellipsis;
+            overflow: hidden;
         }
         
         .tab-button.active {
@@ -712,8 +758,8 @@
         }
         
         .tab-button svg {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
         }
         
         /* モバイル用レスポンシブデザイン */
@@ -733,18 +779,16 @@
                 padding-bottom: 70px;
             }
             
-            .nodes-panel,
-            .relations-panel,
-            .preview-panel {
+            .left-panel,
+            .right-panel {
                 display: none;
                 border-right: none;
                 border-bottom: 1px solid #e5e7eb;
-                padding: 15px;
+                padding: 15px 15px 140px 15px;
             }
             
-            .nodes-panel.active,
-            .relations-panel.active,
-            .preview-panel.active {
+            .left-panel.active,
+            .right-panel.active {
                 display: block;
             }
             
@@ -1189,120 +1233,100 @@
             background: #4b5563;
         }
         
-        /* プロジェクト全体チャット関連のスタイル */
-        .project-chat-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
         
-        .project-chat-modal-content {
-            background: white;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 700px;
-            max-height: 90%;
+        /* ノードタブ関連のスタイル */
+        .node-tabs {
             display: flex;
-            flex-direction: column;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-        
-        .project-chat-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
             border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 20px;
             background: #f9fafb;
-            border-radius: 12px 12px 0 0;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
         }
         
-        .project-chat-header h3 {
-            margin: 0;
-            color: #374151;
-            font-size: 18px;
-            font-weight: 600;
-        }
-        
-        .close-button {
-            background: none;
+        .node-tab-button {
+            flex: 1;
+            padding: 12px 16px;
+            background: #f9fafb;
             border: none;
-            font-size: 24px;
             color: #6b7280;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: background-color 0.2s ease;
+            transition: all 0.2s ease;
+            border-bottom: 3px solid transparent;
         }
         
-        .close-button:hover {
-            background: #e5e7eb;
+        .node-tab-button:hover {
+            background: #f3f4f6;
             color: #374151;
         }
         
-        .project-chat-body {
+        .node-tab-button.active {
+            background: white;
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .node-tab-content {
+            background: white;
+            border-radius: 0 0 8px 8px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+        }
+        
+        /* 埋め込みプロジェクトチャット関連のスタイル */
+        .project-chat-embedded {
+            height: calc(100vh - 200px);
             display: flex;
             flex-direction: column;
-            height: 600px;
         }
         
-        .task-association-section {
-            padding: 16px 20px;
-            border-bottom: 1px solid #e5e7eb;
+        .embedded-chat-history {
+            flex: 1;
+            overflow-y: auto;
+            height: calc(100vh - 300px);
+            max-height: calc(100vh - 300px);
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        
+        .embedded-chat-input-section {
             background: #f8fafc;
+            border-radius: 6px;
+            padding: 12px;
         }
         
-        .task-association-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .task-association-header span {
-            font-weight: 600;
-            color: #374151;
-            font-size: 14px;
-        }
-        
-        .task-clear-button {
-            background: #e5e7eb;
-            color: #6b7280;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        
-        .task-clear-button:hover {
-            background: #d1d5db;
-            color: #374151;
-        }
-        
-        .task-association-select {
+        .embedded-chat-input {
             width: 100%;
+            min-height: 60px;
             padding: 8px 12px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
             font-size: 14px;
-            background: white;
+            line-height: 1.5;
             color: #374151;
+            resize: vertical;
+            font-family: inherit;
+            background: white;
+            transition: border-color 0.2s ease;
         }
         
-        .project-chat-history {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px 20px;
-            background: #fafafa;
+        .embedded-chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+        
+        .embedded-chat-input-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
         }
         
         .chat-empty {
@@ -1328,22 +1352,6 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
-        }
-        
-        .association-label {
-            position: absolute;
-            bottom: -2px;
-            right: 0;
-            font-size: 10px;
-            font-weight: 500;
-            color: #6b7280;
-            background: #f3f4f6;
-            padding: 2px 6px;
-            border-radius: 12px;
-            white-space: nowrap;
-            max-width: 150px;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
         
         .message-timestamp {
@@ -1381,10 +1389,45 @@
             padding: 0;
         }
         
-        .message-menu-dropdown {
+        .association-label {
             position: absolute;
-            top: 100%;
+            bottom: -2px;
             right: 0;
+            font-size: 10px;
+            font-weight: 500;
+            color: #6b7280;
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 12px;
+            white-space: nowrap;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .input-hint {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .send-button {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .send-button:hover {
+            background: #7c3aed;
+        }
+        
+        .message-menu-dropdown {
+            position: fixed;
             background: white;
             border: 1px solid #d1d5db;
             border-radius: 6px;
@@ -1423,62 +1466,6 @@
         
         .message-menu-dropdown button.delete-action:hover {
             background-color: #fef2f2;
-        }
-        
-        .project-chat-input-section {
-            padding: 16px 20px;
-            border-top: 1px solid #e5e7eb;
-            background: white;
-            border-radius: 0 0 12px 12px;
-        }
-        
-        .project-chat-input {
-            width: 100%;
-            min-height: 60px;
-            padding: 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #374151;
-            resize: vertical;
-            font-family: inherit;
-            background: white;
-            transition: border-color 0.2s ease;
-        }
-        
-        .project-chat-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-        }
-        
-        .project-chat-input-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 12px;
-        }
-        
-        .input-hint {
-            font-size: 12px;
-            color: #6b7280;
-        }
-        
-        .send-button {
-            background: #8b5cf6;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        
-        .send-button:hover {
-            background: #7c3aed;
         }
         
         /* メッセージ編集スタイル */
@@ -1535,98 +1522,97 @@
             background: #4b5563;
         }
         
-        /* ノードタブ関連のスタイル */
-        .node-tabs {
+        .message-edit-node-selection {
+            margin: 10px 0;
             display: flex;
-            border-bottom: 1px solid #e5e7eb;
-            margin-bottom: 20px;
-            background: #f9fafb;
-            border-radius: 8px 8px 0 0;
-            overflow: hidden;
+            align-items: center;
+            gap: 8px;
         }
         
-        .node-tab-button {
-            flex: 1;
-            padding: 12px 16px;
-            background: #f9fafb;
-            border: none;
-            color: #6b7280;
+        .message-edit-node-selection label {
             font-size: 14px;
+            color: #374151;
             font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border-bottom: 3px solid transparent;
+            min-width: 80px;
         }
         
-        .node-tab-button:hover {
-            background: #f3f4f6;
-            color: #374151;
-        }
-        
-        .node-tab-button.active {
-            background: white;
-            color: #3b82f6;
-            border-bottom-color: #3b82f6;
-        }
-        
-        .node-tab-content {
-            background: white;
-            border-radius: 0 0 8px 8px;
-            padding: 20px;
-            border: 1px solid #e5e7eb;
-            border-top: none;
-        }
-        
-        /* 埋め込みプロジェクトチャット関連のスタイル */
-        .project-chat-embedded {
-            max-height: 500px;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .embedded-chat-history {
+        .message-edit-node-select {
             flex: 1;
-            overflow-y: auto;
-            max-height: 300px;
-            padding: 12px;
-            background: #fafafa;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            margin-bottom: 16px;
-        }
-        
-        .embedded-chat-input-section {
-            background: #f8fafc;
-            border-radius: 6px;
-            padding: 12px;
-        }
-        
-        .embedded-chat-input {
-            width: 100%;
-            min-height: 60px;
-            padding: 8px 12px;
+            padding: 6px 10px;
             border: 1px solid #d1d5db;
-            border-radius: 6px;
+            border-radius: 4px;
             font-size: 14px;
-            line-height: 1.5;
-            color: #374151;
-            resize: vertical;
-            font-family: inherit;
             background: white;
-            transition: border-color 0.2s ease;
+            color: #1f2937;
         }
         
-        .embedded-chat-input:focus {
+        .message-edit-node-select:focus {
             outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
         }
-        
-        .embedded-chat-input-actions {
+
+        /* フッタータブナビゲーション（共通） */
+        .footer-tabs {
             display: flex;
-            justify-content: space-between;
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+            position: fixed;
+            bottom: 0;
+            z-index: 100;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 左パネル用フッタータブ */
+        .footer-tabs-left {
+            left: 0;
+            right: 50%;
+        }
+
+        /* 右パネル用フッタータブ */
+        .footer-tabs-right {
+            left: 50%;
+            right: 0;
+        }
+
+        .footer-tab-button {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 12px 8px;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            margin-top: 8px;
+            gap: 4px;
+            font-size: 11px;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .footer-tab-button.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .footer-tab-button:hover:not(.active) {
+            color: #374151;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .footer-tab-button svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* モバイル表示時のフッタータブ調整 */
+        @media (max-width: 1024px) {
+            .footer-tabs-left,
+            .footer-tabs-right {
+                display: none; /* モバイルでは両方のフッタータブを非表示 */
+            }
         }
         
         /* フラットタスクリスト関連のスタイル */
@@ -1748,27 +1734,50 @@
         
         <!-- モバイル用タブナビゲーション -->
         <div class="mobile-tabs" id="mobile-tabs">
-            <button class="tab-button active" data-tab="nodes">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="tab-button active" data-footer-tab="nodes">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"/>
                     <path d="M12 1v6m0 6v6"/>
                     <path d="m21 12-6-6-6 6-6-6"/>
                 </svg>
-                ノード
+                ノード追加
             </button>
-            <button class="tab-button" data-tab="relations">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="tab-button" data-footer-tab="relations">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M17 6.1H3"/>
                     <path d="M21 12.1H3"/>
                     <path d="M15.1 18H3"/>
                 </svg>
-                階層・関係
+                階層設定
             </button>
-            <button class="tab-button" data-tab="preview">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="tab-button" data-footer-tab="chat">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                💬 プロジェクトチャット
+            </button>
+            <button class="tab-button" data-right-footer-tab="all-tasks">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <path d="M9 12l2 2 4-4"/>
+                </svg>
+                📋 全ノード表示
+            </button>
+            <button class="tab-button" data-right-footer-tab="task-list">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10,9 9,9 8,9"/>
+                </svg>
+                📝 タスクリスト
+            </button>
+            <button class="tab-button" data-right-footer-tab="graph">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
                 </svg>
-                プレビュー
+                📊 グラフプレビュー
             </button>
         </div>
 
@@ -1807,8 +1816,10 @@
         </div>
 
         <div class="main-content">
-            <div class="nodes-panel" data-panel="nodes">
-                <div class="section">
+            <!-- 左カラム：ノード追加 + リレーション設定 + プロジェクトチャット -->
+            <div class="left-panel" data-panel="left">
+                <!-- ノード追加セクション -->
+                <div class="section" data-footer-section="nodes" style="display: block;">
                     <h3>ノード追加</h3>
                     <div class="relation-form">
                         <div class="form-row">
@@ -1824,16 +1835,15 @@
                     </div>
                 </div>
                 
-                <div class="section">
+                <div class="section" data-footer-section="nodes" style="display: block;">
                     <h3>ノード一覧</h3>
                     <div class="node-list" id="node-list">
                         <!-- ノードがここに表示される -->
                     </div>
                 </div>
-            </div>
-            
-            <div class="relations-panel" data-panel="relations">
-                <div class="section">
+                
+                <!-- 階層・リレーション設定セクション -->
+                <div class="section" data-footer-section="relations" style="display: none;">
                     <h3>階層・リレーション設定</h3>
                     <div class="relation-form">
                         <div class="form-row">
@@ -1857,40 +1867,62 @@
                     </div>
                 </div>
                 
-                <div class="section">
+                <div class="section" data-footer-section="relations" style="display: none;">
                     <h3>階層関係一覧</h3>
                     <div class="relations-list" id="hierarchy-list">
                         <!-- 階層関係がここに表示される -->
                     </div>
                 </div>
                 
-                <div class="section">
+                <div class="section" data-footer-section="relations" style="display: none;">
                     <h3>リレーション一覧</h3>
                     <div class="relations-list" id="relations-list">
                         <!-- リレーションがここに表示される -->
                     </div>
                 </div>
+                
+                <!-- プロジェクトチャットセクション -->
+                <div class="section" data-footer-section="chat" style="display: none;">
+                    <h3>💬 プロジェクトチャット</h3>
+                    <div class="project-chat-embedded">
+                        <!-- タスク関連付け設定 -->
+                        <div class="task-association-section">
+                            <div class="task-association-header">
+                                <span>📌 関連タスク設定</span>
+                                <button id="embedded-task-clear-button" class="task-clear-button">クリア</button>
+                            </div>
+                            <select id="embedded-task-association-select" class="task-association-select">
+                                <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
+                                <!-- ノードオプションは動的に追加 -->
+                            </select>
+                        </div>
+                        
+                        <!-- チャット履歴表示エリア -->
+                        <div class="embedded-chat-history" id="embedded-project-chat-history">
+                            <!-- チャットメッセージがここに表示される -->
+                        </div>
+                        
+                        <!-- メッセージ入力エリア -->
+                        <div class="embedded-chat-input-section">
+                            <textarea 
+                                id="embedded-project-chat-input" 
+                                class="embedded-chat-input" 
+                                placeholder="新しいメッセージを入力... (Ctrl+Enterで送信)"
+                                rows="3"></textarea>
+                            <div class="embedded-chat-input-actions">
+                                <span class="input-hint">Ctrl+Enter: 送信</span>
+                                <button class="send-button" onclick="sendEmbeddedProjectChatMessage()">送信</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <div class="preview-panel" data-panel="preview">
-                <!-- プレビューパネル用タブナビゲーション -->
-                <div class="preview-tabs">
-                    <button class="preview-tab-button" data-preview-tab="all-tasks">
-                        📋 全ノード表示
-                    </button>
-                    <button class="preview-tab-button" data-preview-tab="task-list">
-                        📝 タスクリスト
-                    </button>
-                    <button class="preview-tab-button active" data-preview-tab="project-chat">
-                        💬 プロジェクトチャット
-                    </button>
-                    <button class="preview-tab-button" data-preview-tab="graph">
-                        📊 グラフプレビュー
-                    </button>
-                </div>
+            <!-- 右カラム：その他の機能 -->
+            <div class="right-panel" data-panel="right">
                 
                 <!-- 全ノードタスク表示セクション -->
-                <div class="section all-tasks-section" data-preview-section="all-tasks" style="display: none;">
+                <div class="section all-tasks-section" data-right-footer-section="all-tasks" style="display: block;">
                     <h3>全ノードタスク・ステータス管理</h3>
                     
                     <!-- 全体プログレスバー -->
@@ -1923,49 +1955,15 @@
                 </div>
                 
                 <!-- タスクフラットリスト表示セクション -->
-                <div class="section task-list-section" data-preview-section="task-list" style="display: none;">
+                <div class="section task-list-section" data-right-footer-section="task-list" style="display: none;">
                     <h3>📝 タスクフラットリスト</h3>
                     <div id="flat-task-container" class="flat-task-container">
                         <!-- フラットなタスクリストがここに表示される -->
                     </div>
                 </div>
                 
-                <div class="section project-chat-section" data-preview-section="project-chat" style="display: block;">
-                    <h3>💬 プロジェクトチャット</h3>
-                    <div class="project-chat-embedded">
-                        <!-- タスク関連付け設定 -->
-                        <div class="task-association-section">
-                            <div class="task-association-header">
-                                <span>📌 関連タスク設定</span>
-                                <button class="task-clear-button" onclick="clearEmbeddedTaskAssociation()">クリア</button>
-                            </div>
-                            <select id="embedded-task-association-select" class="task-association-select">
-                                <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
-                                <!-- ノードオプションは動的に追加 -->
-                            </select>
-                        </div>
-                        
-                        <!-- チャット履歴表示エリア -->
-                        <div class="embedded-chat-history" id="embedded-project-chat-history">
-                            <!-- チャットメッセージがここに表示される -->
-                        </div>
-                        
-                        <!-- メッセージ入力エリア -->
-                        <div class="embedded-chat-input-section">
-                            <textarea 
-                                id="embedded-project-chat-input" 
-                                class="embedded-chat-input" 
-                                placeholder="新しいメッセージを入力... (Ctrl+Enterで送信)"
-                                rows="3"></textarea>
-                            <div class="embedded-chat-input-actions">
-                                <span class="input-hint">Ctrl+Enter: 送信</span>
-                                <button class="send-button" onclick="sendEmbeddedProjectChatMessage()">送信</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 
-                <div class="section graph-section" data-preview-section="graph" style="display: none;">
+                <div class="section graph-section" data-right-footer-section="graph" style="display: none;">
                     <h3>グラフプレビュー</h3>
                     <div class="mermaid-output">
                         <div class="diagram-controls">
@@ -1984,7 +1982,7 @@
                     </div>
                 </div>
                 
-                <div class="section" data-preview-section="graph" style="display: none;">
+                <div class="section" data-right-footer-section="graph" style="display: none;">
                     <details class="code-details">
                         <summary class="code-summary">
                             <h3 style="display: inline; margin: 0;">Mermaidコード（デバッグ用）</h3>
@@ -1997,6 +1995,59 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- フッタータブナビゲーション（左パネル用） -->
+    <div class="footer-tabs footer-tabs-left" id="footer-tabs-left">
+        <button class="footer-tab-button active" data-footer-tab="nodes">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6m0 6v6"/>
+                <path d="m21 12-6-6-6 6-6-6"/>
+            </svg>
+            ノード追加
+        </button>
+        <button class="footer-tab-button" data-footer-tab="relations">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 6.1H3"/>
+                <path d="M21 12.1H3"/>
+                <path d="M15.1 18H3"/>
+            </svg>
+            階層設定
+        </button>
+        <button class="footer-tab-button" data-footer-tab="chat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            💬 プロジェクトチャット
+        </button>
+    </div>
+
+    <!-- フッタータブナビゲーション（右パネル用） -->
+    <div class="footer-tabs footer-tabs-right" id="footer-tabs-right">
+        <button class="footer-tab-button active" data-right-footer-tab="all-tasks">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M9 12l2 2 4-4"/>
+            </svg>
+            📋 全ノード表示
+        </button>
+        <button class="footer-tab-button" data-right-footer-tab="task-list">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10,9 9,9 8,9"/>
+            </svg>
+            📝 タスクリスト
+        </button>
+        <button class="footer-tab-button" data-right-footer-tab="graph">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+            </svg>
+            📊 グラフプレビュー
+        </button>
     </div>
 
     <!-- 全画面モーダル -->
@@ -2023,47 +2074,6 @@
         </div>
     </div>
 
-    <!-- プロジェクト全体チャット画面 -->
-    <div id="project-chat-modal" class="project-chat-modal" style="display: none;">
-        <div class="project-chat-modal-content">
-            <div class="project-chat-header">
-                <h3>📱 プロジェクト全体チャット</h3>
-                <button class="close-button" onclick="closeProjectChat()">&times;</button>
-            </div>
-            
-            <div class="project-chat-body">
-                <!-- タスク関連付け設定 -->
-                <div class="task-association-section">
-                    <div class="task-association-header">
-                        <span>📌 関連タスク設定</span>
-                        <button class="task-clear-button" onclick="clearTaskAssociation()">クリア</button>
-                    </div>
-                    <select id="task-association-select" class="task-association-select">
-                        <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
-                        <!-- ノードオプションは動的に追加 -->
-                    </select>
-                </div>
-                
-                <!-- チャット履歴表示エリア -->
-                <div class="project-chat-history" id="project-chat-history">
-                    <!-- チャットメッセージがここに表示される -->
-                </div>
-                
-                <!-- メッセージ入力エリア -->
-                <div class="project-chat-input-section">
-                    <textarea 
-                        id="project-chat-input" 
-                        class="project-chat-input" 
-                        placeholder="新しいメッセージを入力... (Ctrl+Enterで送信)"
-                        rows="3"></textarea>
-                    <div class="project-chat-input-actions">
-                        <span class="input-hint">Ctrl+Enter: 送信</span>
-                        <button class="send-button" onclick="sendProjectChatMessage()">送信</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="dataManager.js"></script>
     <script src="taskManager.js"></script>

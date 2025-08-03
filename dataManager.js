@@ -15,7 +15,6 @@ const STORAGE_KEYS = {
     NODE_TASKS: 'graphEditor_nodeTasks',
     NODE_STATUSES: 'graphEditor_nodeStatuses',
     NODE_CARD_COLLAPSED: 'graphEditor_nodeCardCollapsed',
-    NODE_CHAT_HISTORY: 'graphEditor_nodeChatHistory',
     FLAT_TASK_GROUP_COLLAPSED: 'graphEditor_flatTaskGroupCollapsed',
     DATA_VERSION: 'graphEditor_dataVersion',
     // プロジェクト管理
@@ -24,7 +23,9 @@ const STORAGE_KEYS = {
     // タブ状態管理
     LAST_ACTIVE_TAB: 'graphEditor_lastActiveTab',
     // プロジェクト全体チャット
-    PROJECT_CHAT_HISTORY: 'graphEditor_projectChatHistory'
+    PROJECT_CHAT_HISTORY: 'graphEditor_projectChatHistory',
+    // ノードメモ（一人用）
+    NODE_MEMOS: 'graphEditor_nodeMemos'
 };
 
 // データバージョン
@@ -68,7 +69,6 @@ function createDefaultProject(name = '新しいプロジェクト', description 
             nodeTasks: {},
             nodeStatuses: {},
             nodeCardCollapsed: {},
-            nodeChatHistory: {}
         }
     };
 }
@@ -144,7 +144,6 @@ function saveCurrentProjectData() {
             nodeTasks: {...nodeTasks},
             nodeStatuses: {...nodeStatuses},
             nodeCardCollapsed: {...nodeCardCollapsed},
-            nodeChatHistory: {...nodeChatHistory},
             projectChatHistory: [...projectChatHistory],
             flatTaskGroupCollapsed: {...flatTaskGroupCollapsed}
         };
@@ -164,7 +163,6 @@ function loadProjectData(project) {
     nodeTasks = {...project.data.nodeTasks};
     nodeStatuses = {...project.data.nodeStatuses};
     nodeCardCollapsed = {...project.data.nodeCardCollapsed};
-    nodeChatHistory = {...(project.data.nodeChatHistory || {})};
     projectChatHistory = [...(project.data.projectChatHistory || [])];
     flatTaskGroupCollapsed = {
         ...DEFAULT_FLAT_TASK_GROUP_COLLAPSED,
@@ -201,12 +199,6 @@ function cleanupOrphanedData() {
     });
     
     // 存在しないノードのチャット履歴を削除
-    Object.keys(nodeChatHistory).forEach(nodeIndexStr => {
-        const nodeIndex = parseInt(nodeIndexStr);
-        if (nodeIndex >= nodes.length) {
-            delete nodeChatHistory[nodeIndex];
-        }
-    });
     
     // 存在しないノードの階層関係を削除
     nodeHierarchy = nodeHierarchy.filter(hier => 
@@ -319,8 +311,8 @@ function saveToLocalStorageImmediate() {
             localStorage.setItem(STORAGE_KEYS.NODE_TASKS, JSON.stringify(nodeTasks));
             localStorage.setItem(STORAGE_KEYS.NODE_STATUSES, JSON.stringify(nodeStatuses));
             localStorage.setItem(STORAGE_KEYS.NODE_CARD_COLLAPSED, JSON.stringify(nodeCardCollapsed));
-            localStorage.setItem(STORAGE_KEYS.NODE_CHAT_HISTORY, JSON.stringify(nodeChatHistory));
             localStorage.setItem(STORAGE_KEYS.PROJECT_CHAT_HISTORY, JSON.stringify(projectChatHistory));
+            localStorage.setItem(STORAGE_KEYS.NODE_MEMOS, JSON.stringify(nodeMemos));
             localStorage.setItem(STORAGE_KEYS.FLAT_TASK_GROUP_COLLAPSED, JSON.stringify(flatTaskGroupCollapsed));
         }
         
@@ -371,8 +363,8 @@ function loadFromLocalStorage() {
         const savedNodeTasks = localStorage.getItem(STORAGE_KEYS.NODE_TASKS);
         const savedNodeStatuses = localStorage.getItem(STORAGE_KEYS.NODE_STATUSES);
         const savedNodeCardCollapsed = localStorage.getItem(STORAGE_KEYS.NODE_CARD_COLLAPSED);
-        const savedNodeChatHistory = localStorage.getItem(STORAGE_KEYS.NODE_CHAT_HISTORY);
         const savedProjectChatHistory = localStorage.getItem(STORAGE_KEYS.PROJECT_CHAT_HISTORY);
+        const savedNodeMemos = localStorage.getItem(STORAGE_KEYS.NODE_MEMOS);
         const savedFlatTaskGroupCollapsed = localStorage.getItem(STORAGE_KEYS.FLAT_TASK_GROUP_COLLAPSED);
         
         // データがある場合のみ復元
@@ -412,16 +404,17 @@ function loadFromLocalStorage() {
             nodeCardCollapsed = {};
         }
         
-        if (savedNodeChatHistory) {
-            nodeChatHistory = JSON.parse(savedNodeChatHistory);
-        } else {
-            nodeChatHistory = {};
-        }
         
         if (savedProjectChatHistory) {
             projectChatHistory = JSON.parse(savedProjectChatHistory);
         } else {
             projectChatHistory = [];
+        }
+        
+        if (savedNodeMemos) {
+            nodeMemos = JSON.parse(savedNodeMemos);
+        } else {
+            nodeMemos = {};
         }
         
         if (savedFlatTaskGroupCollapsed) {
@@ -450,8 +443,8 @@ function initializeWithDefaultData() {
     nodeTasks = {};
     nodeStatuses = {};
     nodeCardCollapsed = {};
-    nodeChatHistory = {};
     projectChatHistory = [];
+    nodeMemos = {};
     flatTaskGroupCollapsed = {...DEFAULT_FLAT_TASK_GROUP_COLLAPSED};
     console.log('Initialized with default data');
 }
@@ -502,7 +495,6 @@ function exportData() {
             nodeTasks: nodeTasks,
             nodeStatuses: nodeStatuses,
             nodeCardCollapsed: nodeCardCollapsed,
-            nodeChatHistory: nodeChatHistory
         }
     };
     
@@ -566,7 +558,6 @@ function importData(importDataString) {
                 nodeTasks: dataToImport.nodeTasks || {},
                 nodeStatuses: dataToImport.nodeStatuses || {},
                 nodeCardCollapsed: dataToImport.nodeCardCollapsed || {},
-                nodeChatHistory: dataToImport.nodeChatHistory || {}
             };
             
             // 新しいプロジェクトに切り替え
@@ -678,142 +669,7 @@ function getLastActiveTab() {
 
 // ===== チャット履歴管理機能 =====
 
-/**
- * チャットメッセージIDを生成
- */
-function generateChatMessageId() {
-    return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
 
-/**
- * ノードにチャットメッセージを追加
- * @param {number} nodeIndex - ノードのインデックス
- * @param {string} content - メッセージ内容
- * @param {string} type - メッセージタイプ ('user', 'assistant', 'system')
- * @returns {object} 追加されたメッセージオブジェクト
- */
-function addChatMessage(nodeIndex, content, type = 'user') {
-    if (!nodeChatHistory[nodeIndex]) {
-        nodeChatHistory[nodeIndex] = [];
-    }
-    
-    const message = {
-        id: generateChatMessageId(),
-        content: content.trim(),
-        timestamp: new Date().toISOString(),
-        type: type
-    };
-    
-    nodeChatHistory[nodeIndex].push(message);
-    
-    // デバウンス版の保存を使用してパフォーマンスを改善
-    saveToLocalStorage();
-    
-    return message;
-}
-
-/**
- * ノードのチャット履歴を取得
- * @param {number} nodeIndex - ノードのインデックス
- * @returns {Array} チャットメッセージの配列
- */
-function getChatHistory(nodeIndex) {
-    return nodeChatHistory[nodeIndex] || [];
-}
-
-/**
- * 特定のチャットメッセージを削除
- * @param {number} nodeIndex - ノードのインデックス
- * @param {string} messageId - メッセージID
- * @returns {boolean} 削除成功の場合true
- */
-function deleteChatMessage(nodeIndex, messageId) {
-    if (!nodeChatHistory[nodeIndex]) {
-        return false;
-    }
-    
-    const originalLength = nodeChatHistory[nodeIndex].length;
-    nodeChatHistory[nodeIndex] = nodeChatHistory[nodeIndex].filter(msg => msg.id !== messageId);
-    
-    const deleted = nodeChatHistory[nodeIndex].length < originalLength;
-    
-    if (deleted) {
-        // デバウンス版の保存を使用してパフォーマンスを改善
-        saveToLocalStorage();
-    }
-    
-    return deleted;
-}
-
-/**
- * ノードのチャット履歴を全て削除
- * @param {number} nodeIndex - ノードのインデックス
- * @returns {boolean} 削除成功の場合true
- */
-function clearNodeChatHistory(nodeIndex) {
-    if (nodeChatHistory[nodeIndex]) {
-        delete nodeChatHistory[nodeIndex];
-        
-        // デバウンス版の保存を使用してパフォーマンスを改善
-        saveToLocalStorage();
-        
-        return true;
-    }
-    return false;
-}
-
-/**
- * チャットメッセージを更新
- * @param {number} nodeIndex - ノードのインデックス
- * @param {string} messageId - メッセージID
- * @param {string} newContent - 新しいメッセージ内容
- * @returns {boolean} 更新成功の場合true
- */
-function updateChatMessage(nodeIndex, messageId, newContent) {
-    if (!nodeChatHistory[nodeIndex]) {
-        return false;
-    }
-    
-    const message = nodeChatHistory[nodeIndex].find(msg => msg.id === messageId);
-    if (message) {
-        message.content = newContent.trim();
-        message.timestamp = new Date().toISOString(); // 更新時刻を記録
-        
-        // デバウンス版の保存を使用してパフォーマンスを改善
-        saveToLocalStorage();
-        
-        return true;
-    }
-    
-    return false;
-}
-
-/**
- * ノード削除後のチャット履歴クリーンアップ
- * @param {number} deletedNodeIndex - 削除されたノードのインデックス
- */
-function cleanupChatHistoryAfterNodeDeletion(deletedNodeIndex) {
-    // 削除されたノードのチャット履歴を削除
-    if (nodeChatHistory[deletedNodeIndex]) {
-        delete nodeChatHistory[deletedNodeIndex];
-    }
-    
-    // インデックスが大きいノードのチャット履歴を調整
-    const newChatHistory = {};
-    Object.keys(nodeChatHistory).forEach(nodeIndexStr => {
-        const nodeIndex = parseInt(nodeIndexStr);
-        if (nodeIndex > deletedNodeIndex) {
-            // インデックスを-1
-            newChatHistory[nodeIndex - 1] = nodeChatHistory[nodeIndex];
-        } else if (nodeIndex < deletedNodeIndex) {
-            // そのまま維持
-            newChatHistory[nodeIndex] = nodeChatHistory[nodeIndex];
-        }
-        // deletedNodeIndex と同じインデックスは削除（上で既に削除済み）
-    });
-    
-    nodeChatHistory = newChatHistory;
-}
 
 // ===== プロジェクト全体チャット履歴管理 =====
 
@@ -948,6 +804,34 @@ function updateProjectChatMessage(messageId, newContent) {
 }
 
 /**
+ * プロジェクト全体チャットメッセージを更新（関連付けも含む）
+ * @param {string} messageId - メッセージID
+ * @param {string} newContent - 新しいメッセージ内容
+ * @param {object} newAssociation - 新しい関連付け設定
+ * @returns {boolean} 更新成功の場合true
+ */
+function updateProjectChatMessageWithAssociation(messageId, newContent, newAssociation) {
+    if (!projectChatHistory || typeof newContent !== 'string' || newContent.trim() === '') {
+        return false;
+    }
+    
+    const message = projectChatHistory.find(msg => msg.id === messageId && (!currentProjectId || msg.projectId === currentProjectId));
+    
+    if (message) {
+        message.content = newContent.trim();
+        message.associatedTask = newAssociation;
+        message.timestamp = new Date().toISOString(); // 更新時刻を記録
+        
+        // デバウンス版の保存を使用してパフォーマンスを改善
+        saveToLocalStorage();
+        
+        return true;
+    }
+    
+    return false;
+}
+
+/**
  * プロジェクト全体チャット履歴を全て削除
  * @returns {boolean} 削除成功の場合true
  */
@@ -993,4 +877,126 @@ function getFilteredProjectChatHistory(filterType = 'all', nodeIndex = null) {
         }
         return msg.associatedTask.type === filterType;
     });
+}
+
+// ===== ノードメモ管理機能（一人用、ユーザー投稿限定） =====
+
+let nodeMemos = {};
+
+/**
+ * ノードメモデータを読み込み
+ */
+function loadNodeMemos() {
+    if (!isLocalStorageAvailable()) {
+        console.warn('LocalStorage is not available');
+        return;
+    }
+    
+    try {
+        const stored = localStorage.getItem(STORAGE_KEYS.NODE_MEMOS);
+        if (stored) {
+            nodeMemos = JSON.parse(stored);
+        }
+    } catch (e) {
+        console.error('Error loading node memos:', e);
+        nodeMemos = {};
+    }
+}
+
+/**
+ * ノードメモを取得
+ * @param {number} nodeIndex - ノードのインデックス
+ * @returns {Array} メモ配列
+ */
+function getChatHistory(nodeIndex) {
+    return nodeMemos[nodeIndex] || [];
+}
+
+/**
+ * ノードメモを追加
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} content - メモ内容
+ * @param {string} type - 'user'（固定）
+ * @returns {object|null} 追加されたメモオブジェクト
+ */
+function addChatMessage(nodeIndex, content, type) {
+    if (type !== 'user' || typeof content !== 'string' || content.trim() === '') {
+        return null;
+    }
+    
+    const memo = {
+        id: `memo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        content: content.trim(),
+        timestamp: new Date().toISOString(),
+        type: type
+    };
+    
+    if (!nodeMemos[nodeIndex]) {
+        nodeMemos[nodeIndex] = [];
+    }
+    
+    nodeMemos[nodeIndex].push(memo);
+    saveToLocalStorage();
+    
+    return memo;
+}
+
+/**
+ * ノードメモを削除
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} messageId - メッセージID
+ * @returns {boolean} 削除成功の場合true
+ */
+function deleteChatMessage(nodeIndex, messageId) {
+    if (!nodeMemos[nodeIndex]) {
+        return false;
+    }
+    
+    const originalLength = nodeMemos[nodeIndex].length;
+    nodeMemos[nodeIndex] = nodeMemos[nodeIndex].filter(memo => memo.id !== messageId);
+    
+    if (nodeMemos[nodeIndex].length < originalLength) {
+        // 空になった場合は配列を削除
+        if (nodeMemos[nodeIndex].length === 0) {
+            delete nodeMemos[nodeIndex];
+        }
+        saveToLocalStorage();
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * ノードメモを更新
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} messageId - メッセージID
+ * @param {string} newContent - 新しい内容
+ * @returns {boolean} 更新成功の場合true
+ */
+function updateChatMessage(nodeIndex, messageId, newContent) {
+    if (!nodeMemos[nodeIndex] || typeof newContent !== 'string' || newContent.trim() === '') {
+        return false;
+    }
+    
+    const memo = nodeMemos[nodeIndex].find(m => m.id === messageId);
+    if (memo) {
+        memo.content = newContent.trim();
+        memo.timestamp = new Date().toISOString(); // 更新時刻を記録
+        saveToLocalStorage();
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * ノード削除時のメモクリーンアップ
+ * @param {number} deletedNodeIndex - 削除されたノードのインデックス
+ */
+function cleanupMemosAfterNodeDeletion(deletedNodeIndex) {
+    if (nodeMemos[deletedNodeIndex]) {
+        delete nodeMemos[deletedNodeIndex];
+        saveToLocalStorage();
+    }
 }
