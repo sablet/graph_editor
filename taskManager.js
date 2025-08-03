@@ -215,8 +215,9 @@ function showSelectedNodeTasks() {
     const select = document.getElementById('task-node-select');
     const nodeIndex = parseInt(select.value);
     
-    if (isNaN(nodeIndex)) {
+    if (!isValidNodeIndex(nodeIndex)) {
         hideTaskList();
+        selectedNodeIndex = null;
         // メモセクションも非表示
         if (typeof hideMemoSection === 'function') {
             hideMemoSection();
@@ -232,6 +233,11 @@ function showSelectedNodeTasks() {
     // メモも表示
     if (typeof showNodeMemos === 'function') {
         showNodeMemos(nodeIndex);
+    }
+    
+    // ノードタブ機能に通知
+    if (typeof onNodeSelected === 'function') {
+        onNodeSelected(nodeIndex);
     }
 }
 

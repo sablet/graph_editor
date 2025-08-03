@@ -70,6 +70,86 @@ mermaid.initialize({
     }
 });
 
+// ===== ユーティリティ関数 =====
+
+/**
+ * ノードインデックスの有効性をチェック
+ * @param {number} nodeIndex - チェックするノードインデックス
+ * @returns {boolean} 有効な場合はtrue
+ */
+function isValidNodeIndex(nodeIndex) {
+    return nodeIndex !== null && 
+           nodeIndex !== undefined && 
+           !isNaN(nodeIndex) && 
+           nodeIndex >= 0 && 
+           nodeIndex < nodes.length;
+}
+
+/**
+ * ノード関連の状態をリセット
+ */
+function resetNodeSelection() {
+    selectedNodeIndex = null;
+    if (typeof currentSelectedNodeIndex !== 'undefined') {
+        currentSelectedNodeIndex = null;
+    }
+    
+    // タスクリストコンテナを非表示にする
+    const taskContainer = document.getElementById('task-list-container');
+    if (taskContainer) {
+        taskContainer.style.display = 'none';
+    }
+    
+    // タスクノード選択をリセット
+    const taskNodeSelect = document.getElementById('task-node-select');
+    if (taskNodeSelect) {
+        taskNodeSelect.value = '';
+    }
+    
+    // 埋め込みプロジェクトチャットの関連タスク設定もリセット
+    const embeddedSelect = document.getElementById('embedded-task-association-select');
+    if (embeddedSelect) {
+        embeddedSelect.value = 'global';
+    }
+    
+    // プロジェクトチャットモーダルの関連タスク設定もリセット
+    const modalSelect = document.getElementById('task-association-select');
+    if (modalSelect) {
+        modalSelect.value = 'global';
+    }
+}
+
+/**
+ * 関連タスク設定の有効性をチェックし、必要に応じて修正
+ * @param {string} selectedValue - 選択された値
+ * @param {HTMLElement} select - セレクト要素
+ * @returns {object} 有効な関連タスクオブジェクト
+ */
+function validateAndGetAssociatedTask(selectedValue, select) {
+    let associatedTask = { type: 'global' };
+    
+    if (selectedValue === 'none') {
+        associatedTask = { type: 'none' };
+    } else if (selectedValue.startsWith('node_')) {
+        const nodeIndex = parseInt(selectedValue.replace('node_', ''));
+        if (isValidNodeIndex(nodeIndex)) {
+            associatedTask = {
+                type: 'node',
+                nodeIndex: nodeIndex,
+                nodeName: nodes[nodeIndex] || null
+            };
+        } else {
+            // 無効なノードインデックスの場合はグローバルに変更
+            associatedTask = { type: 'global' };
+            if (select) {
+                select.value = 'global';
+            }
+        }
+    }
+    
+    return associatedTask;
+}
+
 // UI統合関数（外部モジュールの関数呼び出し用）
 function updateAllUI() {
     renderNodes();
@@ -124,12 +204,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // 保存されたタブ状態を復元
     restoreLastActiveTab();
     
-    // タスク機能初期化
+    // タスク機能初期化（基本機能は維持）
     initializeTaskSystem();
     
     // メモ機能初期化
     if (typeof initializeMemoFeatures === 'function') {
         initializeMemoFeatures();
+    }
+    
+    // プロジェクトチャット機能初期化
+    if (typeof initializeProjectChatFeatures === 'function') {
+        initializeProjectChatFeatures();
+    }
+    
+    // ノードタブ機能初期化
+    if (typeof initializeNodeTabFeatures === 'function') {
+        initializeNodeTabFeatures();
     }
     
     // プロジェクト管理UI初期化
@@ -178,8 +268,8 @@ function updateProjectSelector() {
 function updateProjectUI() {
     updateProjectSelector();
     updateAllUI();
-    // デフォルトタブ（全ノード表示）に切り替える
-    switchPreviewTab('all-tasks');
+    // デフォルトタブ（プロジェクトチャット）に切り替える
+    switchPreviewTab('project-chat');
     // 進捗統計を明示的に更新
     updateOverallProgress();
 }
@@ -253,9 +343,27 @@ function switchToProject(projectId) {
     currentProjectId = projectId;
     loadProjectData(project);
     
+    // ノードインデックス関連の状態をリセット
+    resetNodeSelection();
+    
     // UI更新
     updateProjectSelector();
     updateAllUI();
+    
+    // プロジェクトチャット画面が開いていれば更新
+    if (typeof onProjectSwitched === 'function') {
+        onProjectSwitched();
+    }
+    
+    // ノードタブのプロジェクトチャットも更新
+    if (typeof onNodeTabProjectSwitched === 'function') {
+        onNodeTabProjectSwitched();
+    }
+    
+    // 埋め込みプロジェクトチャットのオプションも更新
+    if (typeof updateEmbeddedTaskAssociationOptions === 'function') {
+        updateEmbeddedTaskAssociationOptions();
+    }
     
     // LocalStorageに保存
     saveCurrentProjectIdToStorage();
@@ -839,8 +947,13 @@ function switchPreviewTab(targetTab) {
         renderAllNodesTasks();
     } else if (targetTab === 'task-list') {
         renderFlatTaskList();
-    } else if (targetTab === 'tasks') {
-        updateTaskNodeSelect();
+    } else if (targetTab === 'project-chat') {
+        if (typeof updateEmbeddedTaskAssociationOptions === 'function') {
+            updateEmbeddedTaskAssociationOptions();
+        }
+        if (typeof renderEmbeddedProjectChatHistory === 'function') {
+            renderEmbeddedProjectChatHistory();
+        }
     }
 }
 

@@ -1189,6 +1189,435 @@
             background: #4b5563;
         }
         
+        /* プロジェクト全体チャット関連のスタイル */
+        .project-chat-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .project-chat-modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 700px;
+            max-height: 90%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .project-chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .project-chat-header h3 {
+            margin: 0;
+            color: #374151;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .close-button:hover {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .project-chat-body {
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
+        
+        .task-association-section {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f8fafc;
+        }
+        
+        .task-association-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .task-association-header span {
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+        
+        .task-clear-button {
+            background: #e5e7eb;
+            color: #6b7280;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .task-clear-button:hover {
+            background: #d1d5db;
+            color: #374151;
+        }
+        
+        .task-association-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            color: #374151;
+        }
+        
+        .project-chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+            background: #fafafa;
+        }
+        
+        .chat-empty {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 14px;
+            padding: 40px 20px;
+            font-style: italic;
+        }
+        
+        .project-chat-message {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .association-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #8b5cf6;
+            background: #f3e8ff;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .message-timestamp {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .message-menu {
+            position: relative;
+        }
+        
+        .message-menu-button {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .message-menu-button:hover {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .message-content {
+            color: #374151;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .message-menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+            min-width: 120px;
+        }
+        
+        .message-menu-dropdown button {
+            width: 100%;
+            padding: 8px 12px;
+            background: none;
+            border: none;
+            text-align: left;
+            font-size: 13px;
+            color: #374151;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .message-menu-dropdown button:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .message-menu-dropdown button:first-child {
+            border-radius: 6px 6px 0 0;
+        }
+        
+        .message-menu-dropdown button:last-child {
+            border-radius: 0 0 6px 6px;
+        }
+        
+        .message-menu-dropdown button.delete-action {
+            color: #dc2626;
+        }
+        
+        .message-menu-dropdown button.delete-action:hover {
+            background-color: #fef2f2;
+        }
+        
+        .project-chat-input-section {
+            padding: 16px 20px;
+            border-top: 1px solid #e5e7eb;
+            background: white;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .project-chat-input {
+            width: 100%;
+            min-height: 60px;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #374151;
+            resize: vertical;
+            font-family: inherit;
+            background: white;
+            transition: border-color 0.2s ease;
+        }
+        
+        .project-chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+        
+        .project-chat-input-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+        }
+        
+        .input-hint {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .send-button {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .send-button:hover {
+            background: #7c3aed;
+        }
+        
+        /* メッセージ編集スタイル */
+        .message-edit-textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 8px 12px;
+            border: 1px solid #3b82f6;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #374151;
+            resize: vertical;
+            font-family: inherit;
+            background: white;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+        
+        .message-edit-textarea:focus {
+            outline: none;
+        }
+        
+        .message-edit-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .message-edit-button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .message-edit-save {
+            background: #059669;
+            color: white;
+        }
+        
+        .message-edit-save:hover {
+            background: #047857;
+        }
+        
+        .message-edit-cancel {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .message-edit-cancel:hover {
+            background: #4b5563;
+        }
+        
+        /* ノードタブ関連のスタイル */
+        .node-tabs {
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 20px;
+            background: #f9fafb;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+        }
+        
+        .node-tab-button {
+            flex: 1;
+            padding: 12px 16px;
+            background: #f9fafb;
+            border: none;
+            color: #6b7280;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .node-tab-button:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .node-tab-button.active {
+            background: white;
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .node-tab-content {
+            background: white;
+            border-radius: 0 0 8px 8px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+        }
+        
+        /* 埋め込みプロジェクトチャット関連のスタイル */
+        .project-chat-embedded {
+            max-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .embedded-chat-history {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 300px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        
+        .embedded-chat-input-section {
+            background: #f8fafc;
+            border-radius: 6px;
+            padding: 12px;
+        }
+        
+        .embedded-chat-input {
+            width: 100%;
+            min-height: 60px;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #374151;
+            resize: vertical;
+            font-family: inherit;
+            background: white;
+            transition: border-color 0.2s ease;
+        }
+        
+        .embedded-chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+        
+        .embedded-chat-input-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
+        
         /* フラットタスクリスト関連のスタイル */
         .flat-task-container {
             max-height: 600px;
@@ -1435,14 +1864,14 @@
             <div class="preview-panel" data-panel="preview">
                 <!-- プレビューパネル用タブナビゲーション -->
                 <div class="preview-tabs">
-                    <button class="preview-tab-button active" data-preview-tab="all-tasks">
+                    <button class="preview-tab-button" data-preview-tab="all-tasks">
                         📋 全ノード表示
                     </button>
                     <button class="preview-tab-button" data-preview-tab="task-list">
                         📝 タスクリスト
                     </button>
-                    <button class="preview-tab-button" data-preview-tab="tasks">
-                        📋 ノードタスク管理
+                    <button class="preview-tab-button active" data-preview-tab="project-chat">
+                        💬 プロジェクトチャット
                     </button>
                     <button class="preview-tab-button" data-preview-tab="graph">
                         📊 グラフプレビュー
@@ -1450,7 +1879,7 @@
                 </div>
                 
                 <!-- 全ノードタスク表示セクション -->
-                <div class="section all-tasks-section" data-preview-section="all-tasks">
+                <div class="section all-tasks-section" data-preview-section="all-tasks" style="display: none;">
                     <h3>全ノードタスク・ステータス管理</h3>
                     
                     <!-- 全体プログレスバー -->
@@ -1490,54 +1919,37 @@
                     </div>
                 </div>
                 
-                <div class="section task-section" id="task-management-section" data-preview-section="tasks" style="display: none;">
-                    <h3>📋 ノードタスク管理</h3>
-                    <div class="task-node-selector">
-                        <label for="task-node-select">ノード選択:</label>
-                        <select id="task-node-select" onchange="showSelectedNodeTasks()">
-                            <option value="">タスクを管理するノードを選択</option>
-                        </select>
-                    </div>
-                    
-                    <div class="task-list-container" id="task-list-container" style="display: none;">
-                        <div class="selected-node-info" id="selected-node-info">
-                            <!-- ノード情報がここに表示される -->
-                        </div>
-                        
-                        <div class="task-list" id="task-list">
-                            <!-- タスクリストがここに表示される -->
-                        </div>
-                        
-                        <div class="add-task-form">
-                            <div class="add-task-input-row">
-                                <input type="text" 
-                                    id="new-task-input" 
-                                    class="add-task-input" 
-                                    placeholder="新しいタスクを入力... (Enterで追加)">
-                                <button class="add-task-button" onclick="addNewTask()">追加</button>
+                <div class="section project-chat-section" data-preview-section="project-chat" style="display: block;">
+                    <h3>💬 プロジェクトチャット</h3>
+                    <div class="project-chat-embedded">
+                        <!-- タスク関連付け設定 -->
+                        <div class="task-association-section">
+                            <div class="task-association-header">
+                                <span>📌 関連タスク設定</span>
+                                <button class="task-clear-button" onclick="clearEmbeddedTaskAssociation()">クリア</button>
                             </div>
+                            <select id="embedded-task-association-select" class="task-association-select">
+                                <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
+                                <option value="none">⚡ [タスクなし] - 関連付けなし</option>
+                                <!-- ノードオプションは動的に追加 -->
+                            </select>
                         </div>
                         
-                        <!-- メモ機能セクション -->
-                        <div class="memo-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-                            <h4 style="margin: 0 0 15px 0; color: #374151; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-                                📝 メモ
-                            </h4>
-                            
-                            <div class="memo-list" id="memo-list">
-                                <!-- メモ一覧がここに表示される -->
-                            </div>
-                            
-                            <div class="add-memo-form">
-                                <div class="add-task-input-row">
-                                    <textarea 
-                                        id="new-memo-input" 
-                                        class="add-task-input" 
-                                        placeholder="メモを入力... (Ctrl+Enterで追加)"
-                                        rows="2"
-                                        style="resize: vertical; min-height: 40px;"></textarea>
-                                    <button class="add-task-button" onclick="addNewMemo()">追加</button>
-                                </div>
+                        <!-- チャット履歴表示エリア -->
+                        <div class="embedded-chat-history" id="embedded-project-chat-history">
+                            <!-- チャットメッセージがここに表示される -->
+                        </div>
+                        
+                        <!-- メッセージ入力エリア -->
+                        <div class="embedded-chat-input-section">
+                            <textarea 
+                                id="embedded-project-chat-input" 
+                                class="embedded-chat-input" 
+                                placeholder="新しいメッセージを入力... (Ctrl+Enterで送信)"
+                                rows="3"></textarea>
+                            <div class="embedded-chat-input-actions">
+                                <span class="input-hint">Ctrl+Enter: 送信</span>
+                                <button class="send-button" onclick="sendEmbeddedProjectChatMessage()">送信</button>
                             </div>
                         </div>
                     </div>
@@ -1601,10 +2013,55 @@
         </div>
     </div>
 
+    <!-- プロジェクト全体チャット画面 -->
+    <div id="project-chat-modal" class="project-chat-modal" style="display: none;">
+        <div class="project-chat-modal-content">
+            <div class="project-chat-header">
+                <h3>📱 プロジェクト全体チャット</h3>
+                <button class="close-button" onclick="closeProjectChat()">&times;</button>
+            </div>
+            
+            <div class="project-chat-body">
+                <!-- タスク関連付け設定 -->
+                <div class="task-association-section">
+                    <div class="task-association-header">
+                        <span>📌 関連タスク設定</span>
+                        <button class="task-clear-button" onclick="clearTaskAssociation()">クリア</button>
+                    </div>
+                    <select id="task-association-select" class="task-association-select">
+                        <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
+                        <option value="none">⚡ [タスクなし] - 関連付けなし</option>
+                        <!-- ノードオプションは動的に追加 -->
+                    </select>
+                </div>
+                
+                <!-- チャット履歴表示エリア -->
+                <div class="project-chat-history" id="project-chat-history">
+                    <!-- チャットメッセージがここに表示される -->
+                </div>
+                
+                <!-- メッセージ入力エリア -->
+                <div class="project-chat-input-section">
+                    <textarea 
+                        id="project-chat-input" 
+                        class="project-chat-input" 
+                        placeholder="新しいメッセージを入力... (Ctrl+Enterで送信)"
+                        rows="3"></textarea>
+                    <div class="project-chat-input-actions">
+                        <span class="input-hint">Ctrl+Enter: 送信</span>
+                        <button class="send-button" onclick="sendProjectChatMessage()">送信</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="dataManager.js"></script>
     <script src="taskManager.js"></script>
     <script src="graphManager.js"></script>
     <script src="memoManager.js"></script>
+    <script src="projectChatManager.js"></script>
+    <script src="nodeTabManager.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
