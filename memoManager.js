@@ -67,59 +67,8 @@ function createMemoElement(memo, nodeIndex) {
     return memoItem;
 }
 
-/**
- * HTMLエスケープ
- * @param {string} text - エスケープするテキスト
- * @returns {string} エスケープされたテキスト
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/**
- * タイムスタンプをフォーマット
- * @param {string} timestamp - ISO形式のタイムスタンプ
- * @returns {string} フォーマットされたタイムスタンプ
- */
-function formatTimestamp(timestamp) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now - date;
-    
-    // 1分未満
-    if (diff < 60000) {
-        return 'たった今';
-    }
-    
-    // 1時間未満
-    if (diff < 3600000) {
-        const minutes = Math.floor(diff / 60000);
-        return `${minutes}分前`;
-    }
-    
-    // 24時間未満
-    if (diff < 86400000) {
-        const hours = Math.floor(diff / 3600000);
-        return `${hours}時間前`;
-    }
-    
-    // 7日未満
-    if (diff < 604800000) {
-        const days = Math.floor(diff / 86400000);
-        return `${days}日前`;
-    }
-    
-    // それ以外は日付表示
-    return date.toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
+// 注意: escapeHtml, formatTimestampは
+// app.jsの共通ユーティリティ関数を使用してください
 
 // ===== メモ追加機能 =====
 

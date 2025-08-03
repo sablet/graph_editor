@@ -160,25 +160,7 @@ function createProjectChatMessageElement(message) {
     return messageItem;
 }
 
-/**
- * 関連タスクのラベルを取得
- * @param {object} associatedTask - 関連タスク情報
- * @returns {string} ラベル文字列
- */
-function getAssociationLabel(associatedTask) {
-    switch (associatedTask.type) {
-        case 'global':
-            return '🏷️ [全体]';
-        case 'node':
-            if (isValidNodeIndex(associatedTask.nodeIndex) && nodes[associatedTask.nodeIndex]) {
-                const nodeText = nodes[associatedTask.nodeIndex];
-                return `📍 [ノード${associatedTask.nodeIndex + 1}: ${nodeText.substring(0, 20)}${nodeText.length > 20 ? '...' : ''}]`;
-            }
-            return '📍 [ノード: 削除済み]';
-        default:
-            return '🏷️ [全体]';
-    }
-}
+// 注意: getAssociationLabelはapp.jsの共通ユーティリティ関数を使用
 
 // ===== メッセージ送信機能 =====
 
@@ -461,57 +443,5 @@ function onProjectSwitched() {
 }
 
 // ===== ユーティリティ関数 =====
-
-/**
- * HTMLエスケープ（重複防止のため memoManager.js の関数を再利用）
- * @param {string} text - エスケープするテキスト
- * @returns {string} エスケープされたテキスト
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/**
- * タイムスタンプをフォーマット（重複防止のため memoManager.js の関数を再利用）
- * @param {string} timestamp - ISO形式のタイムスタンプ
- * @returns {string} フォーマットされたタイムスタンプ
- */
-function formatTimestamp(timestamp) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now - date;
-    
-    // 1分未満
-    if (diff < 60000) {
-        return 'たった今';
-    }
-    
-    // 1時間未満
-    if (diff < 3600000) {
-        const minutes = Math.floor(diff / 60000);
-        return `${minutes}分前`;
-    }
-    
-    // 24時間未満
-    if (diff < 86400000) {
-        const hours = Math.floor(diff / 3600000);
-        return `${hours}時間前`;
-    }
-    
-    // 7日未満
-    if (diff < 604800000) {
-        const days = Math.floor(diff / 86400000);
-        return `${days}日前`;
-    }
-    
-    // それ以外は日付表示
-    return date.toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
+// 注意: escapeHtml, formatTimestampは
+// app.jsの共通ユーティリティ関数を使用してください

@@ -1267,13 +1267,4 @@ function toggleFlatTaskCompletion(nodeIndex, taskId) {
     }
 }
 
-/**
- * HTMLエスケープ処理
- * @param {string} text - エスケープするテキスト
- * @returns {string} エスケープされたテキスト
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// 注意: escapeHtmlはapp.jsの共通ユーティリティ関数を使用してください

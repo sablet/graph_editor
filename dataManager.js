@@ -952,10 +952,16 @@ function updateProjectChatMessage(messageId, newContent) {
  * @returns {boolean} 削除成功の場合true
  */
 function clearProjectChatHistory() {
-    projectChatHistory = [];
+    if (!projectChatHistory) {
+        return false;
+    }
+    const originalLength = projectChatHistory.length;
+    projectChatHistory = projectChatHistory.filter(msg => msg.projectId !== currentProjectId);
     
-    // デバウンス版の保存を使用してパフォーマンスを改善
-    saveToLocalStorage();
+    if (projectChatHistory.length < originalLength) {
+        // デバウンス版の保存を使用してパフォーマンスを改善
+        saveToLocalStorage();
+    }
     
     return true;
 }
