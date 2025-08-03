@@ -42,7 +42,7 @@
         }
         
         .right-panel {
-            padding: 20px;
+            padding: 20px 20px 80px 20px;
             background-color: #f9fafb;
             overflow-y: auto;
         }
@@ -1549,17 +1549,27 @@
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
         }
 
-        /* フッタータブナビゲーション（左パネル用） */
+        /* フッタータブナビゲーション（共通） */
         .footer-tabs {
             display: flex;
             background: #f8fafc;
             border-top: 1px solid #e5e7eb;
             position: fixed;
             bottom: 0;
-            left: 0;
-            right: 50%;
             z-index: 100;
             box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 左パネル用フッタータブ */
+        .footer-tabs-left {
+            left: 0;
+            right: 50%;
+        }
+
+        /* 右パネル用フッタータブ */
+        .footer-tabs-right {
+            left: 50%;
+            right: 0;
         }
 
         .footer-tab-button {
@@ -1596,10 +1606,16 @@
 
         /* モバイル表示時のフッタータブ調整 */
         @media (max-width: 1024px) {
-            .footer-tabs {
+            .footer-tabs-left,
+            .footer-tabs-right {
                 bottom: 70px; /* モバイルタブの上に配置 */
-                right: auto;
+                left: 0;
+                right: 0;
                 width: 100%;
+            }
+            
+            .footer-tabs-right {
+                display: none; /* モバイルでは右パネルタブを非表示 */
             }
             
             .footer-tab-button {
@@ -1887,21 +1903,9 @@
             
             <!-- 右カラム：その他の機能 -->
             <div class="right-panel" data-panel="right">
-                <!-- 右パネル用タブナビゲーション -->
-                <div class="preview-tabs">
-                    <button class="preview-tab-button active" data-preview-tab="all-tasks">
-                        📋 全ノード表示
-                    </button>
-                    <button class="preview-tab-button" data-preview-tab="task-list">
-                        📝 タスクリスト
-                    </button>
-                    <button class="preview-tab-button" data-preview-tab="graph">
-                        📊 グラフプレビュー
-                    </button>
-                </div>
                 
                 <!-- 全ノードタスク表示セクション -->
-                <div class="section all-tasks-section" data-preview-section="all-tasks" style="display: block;">
+                <div class="section all-tasks-section" data-right-footer-section="all-tasks" style="display: block;">
                     <h3>全ノードタスク・ステータス管理</h3>
                     
                     <!-- 全体プログレスバー -->
@@ -1934,7 +1938,7 @@
                 </div>
                 
                 <!-- タスクフラットリスト表示セクション -->
-                <div class="section task-list-section" data-preview-section="task-list" style="display: none;">
+                <div class="section task-list-section" data-right-footer-section="task-list" style="display: none;">
                     <h3>📝 タスクフラットリスト</h3>
                     <div id="flat-task-container" class="flat-task-container">
                         <!-- フラットなタスクリストがここに表示される -->
@@ -1942,7 +1946,7 @@
                 </div>
                 
                 
-                <div class="section graph-section" data-preview-section="graph" style="display: none;">
+                <div class="section graph-section" data-right-footer-section="graph" style="display: none;">
                     <h3>グラフプレビュー</h3>
                     <div class="mermaid-output">
                         <div class="diagram-controls">
@@ -1961,7 +1965,7 @@
                     </div>
                 </div>
                 
-                <div class="section" data-preview-section="graph" style="display: none;">
+                <div class="section" data-right-footer-section="graph" style="display: none;">
                     <details class="code-details">
                         <summary class="code-summary">
                             <h3 style="display: inline; margin: 0;">Mermaidコード（デバッグ用）</h3>
@@ -1977,7 +1981,7 @@
     </div>
 
     <!-- フッタータブナビゲーション（左パネル用） -->
-    <div class="footer-tabs" id="footer-tabs">
+    <div class="footer-tabs footer-tabs-left" id="footer-tabs-left">
         <button class="footer-tab-button active" data-footer-tab="nodes">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3"/>
@@ -1999,6 +2003,33 @@
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
             💬 プロジェクトチャット
+        </button>
+    </div>
+
+    <!-- フッタータブナビゲーション（右パネル用） -->
+    <div class="footer-tabs footer-tabs-right" id="footer-tabs-right">
+        <button class="footer-tab-button active" data-right-footer-tab="all-tasks">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M9 12l2 2 4-4"/>
+            </svg>
+            📋 全ノード表示
+        </button>
+        <button class="footer-tab-button" data-right-footer-tab="task-list">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10,9 9,9 8,9"/>
+            </svg>
+            📝 タスクリスト
+        </button>
+        <button class="footer-tab-button" data-right-footer-tab="graph">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+            </svg>
+            📊 グラフプレビュー
         </button>
     </div>
 
