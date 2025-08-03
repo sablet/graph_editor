@@ -215,8 +215,9 @@ function showSelectedNodeTasks() {
     const select = document.getElementById('task-node-select');
     const nodeIndex = parseInt(select.value);
     
-    if (isNaN(nodeIndex)) {
+    if (!isValidNodeIndex(nodeIndex)) {
         hideTaskList();
+        selectedNodeIndex = null;
         // メモセクションも非表示
         if (typeof hideMemoSection === 'function') {
             hideMemoSection();
@@ -232,6 +233,11 @@ function showSelectedNodeTasks() {
     // メモも表示
     if (typeof showNodeMemos === 'function') {
         showNodeMemos(nodeIndex);
+    }
+    
+    // ノードタブ機能に通知
+    if (typeof onNodeSelected === 'function') {
+        onNodeSelected(nodeIndex);
     }
 }
 
@@ -1261,13 +1267,4 @@ function toggleFlatTaskCompletion(nodeIndex, taskId) {
     }
 }
 
-/**
- * HTMLエスケープ処理
- * @param {string} text - エスケープするテキスト
- * @returns {string} エスケープされたテキスト
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// 注意: escapeHtmlはapp.jsの共通ユーティリティ関数を使用してください

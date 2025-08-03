@@ -70,6 +70,84 @@ mermaid.initialize({
     }
 });
 
+// ===== ユーティリティ関数 =====
+
+/**
+ * ノードインデックスの有効性をチェック
+ * @param {number} nodeIndex - チェックするノードインデックス
+ * @returns {boolean} 有効な場合はtrue
+ */
+function isValidNodeIndex(nodeIndex) {
+    return nodeIndex !== null && 
+           nodeIndex !== undefined && 
+           !isNaN(nodeIndex) && 
+           nodeIndex >= 0 && 
+           nodeIndex < nodes.length;
+}
+
+/**
+ * ノード関連の状態をリセット
+ */
+function resetNodeSelection() {
+    selectedNodeIndex = null;
+    if (typeof currentSelectedNodeIndex !== 'undefined') {
+        currentSelectedNodeIndex = null;
+    }
+    
+    // タスクリストコンテナを非表示にする
+    const taskContainer = document.getElementById('task-list-container');
+    if (taskContainer) {
+        taskContainer.style.display = 'none';
+    }
+    
+    // タスクノード選択をリセット
+    const taskNodeSelect = document.getElementById('task-node-select');
+    if (taskNodeSelect) {
+        taskNodeSelect.value = '';
+    }
+    
+    // 埋め込みプロジェクトチャットの関連タスク設定もリセット
+    const embeddedSelect = document.getElementById('embedded-task-association-select');
+    if (embeddedSelect) {
+        embeddedSelect.value = 'global';
+    }
+    
+    // プロジェクトチャットモーダルの関連タスク設定もリセット
+    const modalSelect = document.getElementById('task-association-select');
+    if (modalSelect) {
+        modalSelect.value = 'global';
+    }
+}
+
+/**
+ * 関連タスク設定の有効性をチェックし、必要に応じて修正
+ * @param {string} selectedValue - 選択された値
+ * @param {HTMLElement} select - セレクト要素
+ * @returns {object} 有効な関連タスクオブジェクト
+ */
+function validateAndGetAssociatedTask(selectedValue, select) {
+    let associatedTask = { type: 'global' };
+    
+    if (selectedValue.startsWith('node_')) {
+        const nodeIndex = parseInt(selectedValue.replace('node_', ''));
+        if (isValidNodeIndex(nodeIndex)) {
+            associatedTask = {
+                type: 'node',
+                nodeIndex: nodeIndex,
+                nodeName: nodes[nodeIndex] || null
+            };
+        } else {
+            // 無効なノードインデックスの場合はグローバルに変更
+            associatedTask = { type: 'global' };
+            if (select) {
+                select.value = 'global';
+            }
+        }
+    }
+    
+    return associatedTask;
+}
+
 // UI統合関数（外部モジュールの関数呼び出し用）
 function updateAllUI() {
     renderNodes();
@@ -124,12 +202,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // 保存されたタブ状態を復元
     restoreLastActiveTab();
     
-    // タスク機能初期化
+    // タスク機能初期化（基本機能は維持）
     initializeTaskSystem();
     
     // メモ機能初期化
     if (typeof initializeMemoFeatures === 'function') {
         initializeMemoFeatures();
+    }
+    
+    // プロジェクトチャット機能初期化
+    if (typeof initializeProjectChatFeatures === 'function') {
+        initializeProjectChatFeatures();
+    }
+    
+    // ノードタブ機能初期化
+    if (typeof initializeNodeTabFeatures === 'function') {
+        initializeNodeTabFeatures();
     }
     
     // プロジェクト管理UI初期化
@@ -178,8 +266,8 @@ function updateProjectSelector() {
 function updateProjectUI() {
     updateProjectSelector();
     updateAllUI();
-    // デフォルトタブ（全ノード表示）に切り替える
-    switchPreviewTab('all-tasks');
+    // デフォルトタブ（プロジェクトチャット）に切り替える
+    switchPreviewTab('project-chat');
     // 進捗統計を明示的に更新
     updateOverallProgress();
 }
@@ -253,9 +341,27 @@ function switchToProject(projectId) {
     currentProjectId = projectId;
     loadProjectData(project);
     
+    // ノードインデックス関連の状態をリセット
+    resetNodeSelection();
+    
     // UI更新
     updateProjectSelector();
     updateAllUI();
+    
+    // プロジェクトチャット画面が開いていれば更新
+    if (typeof onProjectSwitched === 'function') {
+        onProjectSwitched();
+    }
+    
+    // ノードタブのプロジェクトチャットも更新
+    if (typeof onNodeTabProjectSwitched === 'function') {
+        onNodeTabProjectSwitched();
+    }
+    
+    // 埋め込みプロジェクトチャットのオプションも更新
+    if (typeof updateEmbeddedTaskAssociationOptions === 'function') {
+        updateEmbeddedTaskAssociationOptions();
+    }
     
     // LocalStorageに保存
     saveCurrentProjectIdToStorage();
@@ -839,8 +945,13 @@ function switchPreviewTab(targetTab) {
         renderAllNodesTasks();
     } else if (targetTab === 'task-list') {
         renderFlatTaskList();
-    } else if (targetTab === 'tasks') {
-        updateTaskNodeSelect();
+    } else if (targetTab === 'project-chat') {
+        if (typeof updateEmbeddedTaskAssociationOptions === 'function') {
+            updateEmbeddedTaskAssociationOptions();
+        }
+        if (typeof renderEmbeddedProjectChatHistory === 'function') {
+            renderEmbeddedProjectChatHistory();
+        }
     }
 }
 
@@ -920,4 +1031,179 @@ function generateMermaidCode() {
     }
     
     renderMermaidDiagram(mermaidCode);
+}
+
+// ===== 共通ユーティリティ関数 =====
+
+/**
+ * HTMLエスケープ
+ * @param {string} text - エスケープするテキスト
+ * @returns {string} エスケープされたテキスト
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * タイムスタンプをフォーマット
+ * @param {string} timestamp - ISO形式のタイムスタンプ
+ * @returns {string} フォーマットされたタイムスタンプ
+ */
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    
+    // 1分未満
+    if (diff < 60000) {
+        return 'たった今';
+    }
+    
+    // 1時間未満
+    if (diff < 3600000) {
+        const minutes = Math.floor(diff / 60000);
+        return `${minutes}分前`;
+    }
+    
+    // 24時間未満
+    if (diff < 86400000) {
+        const hours = Math.floor(diff / 3600000);
+        return `${hours}時間前`;
+    }
+    
+    // 7日未満
+    if (diff < 604800000) {
+        const days = Math.floor(diff / 86400000);
+        return `${days}日前`;
+    }
+    
+    // それ以外は日付表示
+    return date.toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+/**
+ * 関連タスクのラベルを取得
+ * @param {object} associatedTask - 関連タスク情報
+ * @returns {string} ラベル文字列
+ */
+function getAssociationLabel(associatedTask) {
+    switch (associatedTask.type) {
+        case 'global':
+            return '🏷️ [全体]';
+        case 'node':
+            if (isValidNodeIndex(associatedTask.nodeIndex) && nodes[associatedTask.nodeIndex]) {
+                const nodeText = nodes[associatedTask.nodeIndex];
+                return `📍 [ノード${associatedTask.nodeIndex + 1}: ${nodeText.substring(0, 20)}${nodeText.length > 20 ? '...' : ''}]`;
+            }
+            return '📍 [ノード: 削除済み]';
+        default:
+            return '🏷️ [全体]';
+    }
+}
+
+// ===== 共通チャット機能 =====
+
+/**
+ * チャットメッセージ要素を作成（共通機能）
+ * @param {object} message - メッセージオブジェクト
+ * @param {string} menuHandlerName - メニュー切り替えハンドラー関数名
+ * @returns {HTMLElement} メッセージ要素
+ */
+function createChatMessageElement(message, menuHandlerName) {
+    const messageItem = document.createElement('div');
+    messageItem.className = 'project-chat-message';
+    messageItem.setAttribute('data-message-id', message.id);
+    
+    const timestamp = formatTimestamp(message.timestamp);
+    const associationLabel = getAssociationLabel(message.associatedTask);
+    
+    messageItem.innerHTML = `
+        <div class="message-header">
+            <span class="message-timestamp">${timestamp}</span>
+            <div class="message-menu">
+                <button class="message-menu-button" onclick="${menuHandlerName}(event, '${message.id}')">⋯</button>
+            </div>
+        </div>
+        <div class="message-content">${escapeHtml(message.content)}</div>
+        <span class="association-label">${associationLabel}</span>
+    `;
+    
+    return messageItem;
+}
+
+/**
+ * メッセージメニュードロップダウンを作成（共通機能）
+ * @param {string} messageId - メッセージID
+ * @param {string} editHandlerName - 編集ハンドラー関数名
+ * @param {string} deleteHandlerName - 削除ハンドラー関数名
+ * @returns {HTMLElement} ドロップダウン要素
+ */
+function createMessageMenuDropdown(messageId, editHandlerName, deleteHandlerName) {
+    const dropdown = document.createElement('div');
+    dropdown.className = 'message-menu-dropdown';
+    
+    dropdown.innerHTML = `
+        <button onclick="${editHandlerName}('${messageId}')">
+            ✏️ 編集
+        </button>
+        <button class="delete-action" onclick="${deleteHandlerName}('${messageId}')">
+            🗑️ 削除
+        </button>
+    `;
+    
+    return dropdown;
+}
+
+/**
+ * メッセージを編集モードに切り替え（共通機能）
+ * @param {string} messageId - メッセージID
+ * @param {Array} messages - メッセージリスト
+ * @param {string} saveHandlerName - 保存ハンドラー関数名
+ * @param {string} cancelHandlerName - キャンセルハンドラー関数名
+ * @param {string} containerSelector - メッセージコンテナーのセレクター
+ */
+function editChatMessage(messageId, messages, saveHandlerName, cancelHandlerName, containerSelector) {
+    const messageItem = document.querySelector(`${containerSelector} [data-message-id="${messageId}"]`);
+    if (!messageItem) return;
+    
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+    
+    const contentElement = messageItem.querySelector('.message-content');
+    const originalContent = message.content;
+    
+    // 編集フォームを作成
+    contentElement.innerHTML = `
+        <textarea class="message-edit-textarea" id="edit-textarea-${messageId}">${escapeHtml(originalContent)}</textarea>
+        <div class="message-edit-actions">
+            <button class="message-edit-button message-edit-save" onclick="${saveHandlerName}('${messageId}')">保存</button>
+            <button class="message-edit-button message-edit-cancel" onclick="${cancelHandlerName}()">キャンセル</button>
+        </div>
+    `;
+    
+    // テキストエリアにフォーカス
+    const textarea = document.getElementById(`edit-textarea-${messageId}`);
+    if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        
+        // Enterキーで保存、Escキーでキャンセル
+        textarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                window[saveHandlerName](messageId);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                window[cancelHandlerName]();
+            }
+        });
+    }
 }

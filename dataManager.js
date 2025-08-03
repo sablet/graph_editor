@@ -22,7 +22,9 @@ const STORAGE_KEYS = {
     PROJECTS: 'graphEditor_projects',
     CURRENT_PROJECT_ID: 'graphEditor_currentProjectId',
     // タブ状態管理
-    LAST_ACTIVE_TAB: 'graphEditor_lastActiveTab'
+    LAST_ACTIVE_TAB: 'graphEditor_lastActiveTab',
+    // プロジェクト全体チャット
+    PROJECT_CHAT_HISTORY: 'graphEditor_projectChatHistory'
 };
 
 // データバージョン
@@ -143,6 +145,7 @@ function saveCurrentProjectData() {
             nodeStatuses: {...nodeStatuses},
             nodeCardCollapsed: {...nodeCardCollapsed},
             nodeChatHistory: {...nodeChatHistory},
+            projectChatHistory: [...projectChatHistory],
             flatTaskGroupCollapsed: {...flatTaskGroupCollapsed}
         };
         project.updatedAt = new Date().toISOString();
@@ -162,6 +165,7 @@ function loadProjectData(project) {
     nodeStatuses = {...project.data.nodeStatuses};
     nodeCardCollapsed = {...project.data.nodeCardCollapsed};
     nodeChatHistory = {...(project.data.nodeChatHistory || {})};
+    projectChatHistory = [...(project.data.projectChatHistory || [])];
     flatTaskGroupCollapsed = {
         ...DEFAULT_FLAT_TASK_GROUP_COLLAPSED,
         ...(project.data.flatTaskGroupCollapsed || {})
@@ -316,6 +320,7 @@ function saveToLocalStorageImmediate() {
             localStorage.setItem(STORAGE_KEYS.NODE_STATUSES, JSON.stringify(nodeStatuses));
             localStorage.setItem(STORAGE_KEYS.NODE_CARD_COLLAPSED, JSON.stringify(nodeCardCollapsed));
             localStorage.setItem(STORAGE_KEYS.NODE_CHAT_HISTORY, JSON.stringify(nodeChatHistory));
+            localStorage.setItem(STORAGE_KEYS.PROJECT_CHAT_HISTORY, JSON.stringify(projectChatHistory));
             localStorage.setItem(STORAGE_KEYS.FLAT_TASK_GROUP_COLLAPSED, JSON.stringify(flatTaskGroupCollapsed));
         }
         
@@ -367,6 +372,7 @@ function loadFromLocalStorage() {
         const savedNodeStatuses = localStorage.getItem(STORAGE_KEYS.NODE_STATUSES);
         const savedNodeCardCollapsed = localStorage.getItem(STORAGE_KEYS.NODE_CARD_COLLAPSED);
         const savedNodeChatHistory = localStorage.getItem(STORAGE_KEYS.NODE_CHAT_HISTORY);
+        const savedProjectChatHistory = localStorage.getItem(STORAGE_KEYS.PROJECT_CHAT_HISTORY);
         const savedFlatTaskGroupCollapsed = localStorage.getItem(STORAGE_KEYS.FLAT_TASK_GROUP_COLLAPSED);
         
         // データがある場合のみ復元
@@ -412,6 +418,12 @@ function loadFromLocalStorage() {
             nodeChatHistory = {};
         }
         
+        if (savedProjectChatHistory) {
+            projectChatHistory = JSON.parse(savedProjectChatHistory);
+        } else {
+            projectChatHistory = [];
+        }
+        
         if (savedFlatTaskGroupCollapsed) {
             flatTaskGroupCollapsed = JSON.parse(savedFlatTaskGroupCollapsed);
         } else {
@@ -439,6 +451,7 @@ function initializeWithDefaultData() {
     nodeStatuses = {};
     nodeCardCollapsed = {};
     nodeChatHistory = {};
+    projectChatHistory = [];
     flatTaskGroupCollapsed = {...DEFAULT_FLAT_TASK_GROUP_COLLAPSED};
     console.log('Initialized with default data');
 }
@@ -800,4 +813,184 @@ function cleanupChatHistoryAfterNodeDeletion(deletedNodeIndex) {
     });
     
     nodeChatHistory = newChatHistory;
+}
+
+// ===== プロジェクト全体チャット履歴管理 =====
+
+/**
+ * プロジェクト全体チャット履歴のグローバル変数
+ * 注意: この変数は現在のプロジェクトのチャット履歴のみを保持
+ */
+let projectChatHistory = [];
+
+/**
+ * プロジェクト全体チャット履歴を取得
+ * @returns {Array} プロジェクトチャットメッセージの配列
+ */
+function getProjectChatHistory() {
+    // プロジェクト管理が有効な場合は、現在のプロジェクトのチャット履歴のみを返す
+    if (currentProjectId && projectChatHistory) {
+        return projectChatHistory.filter(msg => msg.projectId === currentProjectId);
+    }
+    return projectChatHistory || [];
+}
+
+/**
+ * プロジェクト全体チャットにメッセージを追加
+ * @param {string} content - メッセージ内容
+ * @param {string} type - メッセージタイプ（'user', 'assistant', 'system'）
+ * @param {object} associatedTask - 関連タスク情報
+ * @param {string} associatedTask.type - 'global', 'node', 'none'
+ * @param {number} [associatedTask.nodeIndex] - ノードインデックス（type='node'の場合）
+ * @param {string} [associatedTask.nodeName] - ノード名（表示用）
+ * @returns {object|null} 追加されたメッセージオブジェクト
+ */
+function addProjectChatMessage(content, type = 'user', associatedTask = { type: 'global' }) {
+    if (typeof content !== 'string' || content.trim() === '') {
+        console.error('Invalid message content');
+        return null;
+    }
+    
+    const timestamp = new Date().toISOString();
+    const messageId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const message = {
+        id: messageId,
+        content: content.trim(),
+        timestamp: timestamp,
+        type: type,
+        projectId: currentProjectId || null, // 現在のプロジェクトIDを記録
+        associatedTask: {
+            type: associatedTask.type || 'global',
+            nodeIndex: associatedTask.nodeIndex || null,
+            nodeName: associatedTask.nodeName || null
+        }
+    };
+    
+    if (!projectChatHistory) {
+        projectChatHistory = [];
+    }
+    
+    projectChatHistory.push(message);
+    
+    // デバウンス版の保存を使用してパフォーマンスを改善
+    saveToLocalStorage();
+    
+    return message;
+}
+
+/**
+ * プロジェクト全体チャットメッセージを削除
+ * @param {string} messageId - メッセージID
+ * @returns {boolean} 削除成功の場合true
+ */
+function deleteProjectChatMessage(messageId) {
+    if (!projectChatHistory) {
+        return false;
+    }
+    
+    const originalLength = projectChatHistory.length;
+    // 現在のプロジェクトのメッセージのみ削除対象とする
+    projectChatHistory = projectChatHistory.filter(msg => {
+        if (msg.id === messageId) {
+            // プロジェクト管理が有効な場合は、現在のプロジェクトのメッセージのみ削除
+            if (currentProjectId && msg.projectId !== currentProjectId) {
+                return true; // 他のプロジェクトのメッセージは残す
+            }
+            return false; // 削除対象
+        }
+        return true; // その他のメッセージは残す
+    });
+    
+    const deleted = projectChatHistory.length < originalLength;
+    
+    if (deleted) {
+        // デバウンス版の保存を使用してパフォーマンスを改善
+        saveToLocalStorage();
+    }
+    
+    return deleted;
+}
+
+/**
+ * プロジェクト全体チャットメッセージを更新
+ * @param {string} messageId - メッセージID
+ * @param {string} newContent - 新しいメッセージ内容
+ * @returns {boolean} 更新成功の場合true
+ */
+function updateProjectChatMessage(messageId, newContent) {
+    if (!projectChatHistory || typeof newContent !== 'string' || newContent.trim() === '') {
+        return false;
+    }
+    
+    const message = projectChatHistory.find(msg => {
+        if (msg.id === messageId) {
+            // プロジェクト管理が有効な場合は、現在のプロジェクトのメッセージのみ更新対象
+            if (currentProjectId && msg.projectId !== currentProjectId) {
+                return false; // 他のプロジェクトのメッセージは対象外
+            }
+            return true; // 更新対象
+        }
+        return false;
+    });
+    
+    if (message) {
+        message.content = newContent.trim();
+        message.timestamp = new Date().toISOString(); // 更新時刻を記録
+        
+        // デバウンス版の保存を使用してパフォーマンスを改善
+        saveToLocalStorage();
+        
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * プロジェクト全体チャット履歴を全て削除
+ * @returns {boolean} 削除成功の場合true
+ */
+function clearProjectChatHistory() {
+    if (!projectChatHistory) {
+        return false;
+    }
+    const originalLength = projectChatHistory.length;
+    projectChatHistory = projectChatHistory.filter(msg => msg.projectId !== currentProjectId);
+    
+    if (projectChatHistory.length < originalLength) {
+        // デバウンス版の保存を使用してパフォーマンスを改善
+        saveToLocalStorage();
+    }
+    
+    return true;
+}
+
+/**
+ * タスク関連付けでプロジェクトチャット履歴をフィルタリング
+ * @param {string} filterType - 'all', 'global', 'node', 'none'
+ * @param {number} [nodeIndex] - filterType='node'の場合のノードインデックス
+ * @returns {Array} フィルタされたメッセージ配列
+ */
+function getFilteredProjectChatHistory(filterType = 'all', nodeIndex = null) {
+    if (!projectChatHistory) {
+        return [];
+    }
+    
+    // まず現在のプロジェクトのメッセージのみにフィルタ
+    let currentProjectMessages = projectChatHistory;
+    if (currentProjectId) {
+        currentProjectMessages = projectChatHistory.filter(msg => msg.projectId === currentProjectId);
+    }
+    
+    if (filterType === 'all') {
+        return [...currentProjectMessages];
+    }
+    
+    return currentProjectMessages.filter(msg => {
+        if (filterType === 'node' && nodeIndex !== null) {
+            return msg.associatedTask.type === 'node' && msg.associatedTask.nodeIndex === nodeIndex;
+        }
+        return msg.associatedTask.type === filterType;
+    });
 }
