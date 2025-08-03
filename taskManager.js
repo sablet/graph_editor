@@ -1019,3 +1019,255 @@ document.addEventListener('click', function(e) {
         closeAllTaskMenus();
     }
 }, true); // キャプチャフェーズで実行
+
+// グループの折りたたみ状態を管理
+let flatTaskGroupCollapsed = {...DEFAULT_FLAT_TASK_GROUP_COLLAPSED};
+
+// タスクグループ設定
+const TASK_GROUP_CONFIG = {
+    incomplete: {
+        id: 'incomplete',
+        title: '📝 未完了タスク',
+        color: '#3b82f6'
+    },
+    blocked_incomplete: {
+        id: 'blocked_incomplete',
+        title: '⚠️ ブロック中タスク',
+        color: '#f59e0b'
+    },
+    completed: {
+        id: 'completed',
+        title: '✅ 完了タスク',
+        color: '#059669'
+    }
+};
+
+/**
+ * タスクフラットリスト表示を生成（グループ化対応）
+ */
+function renderFlatTaskList() {
+    const container = document.getElementById('flat-task-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // 全ノードからタスクを収集しグループ化
+    const taskGroups = {
+        incomplete: [],
+        blocked_incomplete: [],
+        completed: []
+    };
+    
+    nodes.forEach((nodeName, nodeIndex) => {
+        const tasks = getNodeTasks(nodeIndex);
+        const nodeStatusInfo = getNodeStatusInfo(nodeIndex);
+        const isNodeBlocked = nodeStatusInfo.id === 'on_hold'; // 保留 = ブロック状態
+        
+        if (tasks && tasks.length > 0) {
+            tasks.forEach(task => {
+                const taskData = {
+                    ...task,
+                    nodeIndex: nodeIndex,
+                    nodeName: nodeName,
+                    isNodeBlocked: isNodeBlocked
+                };
+                
+                if (task.completed) {
+                    taskGroups.completed.push(taskData);
+                } else if (isNodeBlocked) {
+                    taskGroups.blocked_incomplete.push(taskData);
+                } else {
+                    taskGroups.incomplete.push(taskData);
+                }
+            });
+        }
+    });
+    
+    // 全てのグループが空の場合
+    const totalTasks = taskGroups.incomplete.length + taskGroups.blocked_incomplete.length + taskGroups.completed.length;
+    if (totalTasks === 0) {
+        container.innerHTML = '<div class="no-tasks-message">タスクがありません</div>';
+        return;
+    }
+    
+    // グループを描画
+    Object.values(TASK_GROUP_CONFIG).forEach(groupConfig => {
+        renderTaskGroup(container, groupConfig.id, groupConfig.title, taskGroups[groupConfig.id], groupConfig.color);
+    });
+}
+
+/**
+ * タスクグループを描画
+ * @param {HTMLElement} container - コンテナ要素
+ * @param {string} groupId - グループID
+ * @param {string} groupTitle - グループタイトル
+ * @param {Array} tasks - タスクリスト
+ * @param {string} color - グループカラー
+ */
+function renderTaskGroup(container, groupId, groupTitle, tasks, color) {
+    if (tasks.length === 0) return;
+    
+    const groupContainer = document.createElement('div');
+    groupContainer.className = 'flat-task-group';
+    groupContainer.setAttribute('data-group-id', groupId);
+    
+    // グループヘッダー
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'flat-group-header';
+    groupHeader.style.backgroundColor = `${color}08`;
+    
+    const isCollapsed = flatTaskGroupCollapsed[groupId];
+    
+    // ヘッダーコンテンツ
+    const headerContent = document.createElement('div');
+    headerContent.className = 'flat-group-header-content';
+    
+    const expandIcon = document.createElement('span');
+    expandIcon.className = 'expand-icon';
+    expandIcon.style.color = color;
+    expandIcon.style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+    expandIcon.textContent = '▼';
+    
+    const groupTitleSpan = document.createElement('span');
+    groupTitleSpan.className = 'group-title';
+    groupTitleSpan.style.color = color;
+    groupTitleSpan.textContent = groupTitle;
+    
+    headerContent.appendChild(expandIcon);
+    headerContent.appendChild(groupTitleSpan);
+    
+    const groupCount = document.createElement('span');
+    groupCount.className = 'group-count';
+    groupCount.style.backgroundColor = color;
+    groupCount.textContent = tasks.length;
+    
+    groupHeader.appendChild(headerContent);
+    groupHeader.appendChild(groupCount);
+    
+    // ホバーエフェクト
+    groupHeader.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = `${color}12`;
+    });
+    
+    groupHeader.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = `${color}08`;
+    });
+    
+    // クリックイベント
+    groupHeader.addEventListener('click', function() {
+        toggleFlatTaskGroup(groupId);
+    });
+    
+    groupContainer.appendChild(groupHeader);
+    
+    // タスクリストコンテナ
+    const taskListContainer = document.createElement('div');
+    taskListContainer.className = 'flat-task-list';
+    taskListContainer.style.display = isCollapsed ? 'none' : 'block';
+    
+    // タスクを描画
+    tasks.forEach(task => {
+        const taskItem = document.createElement('div');
+        taskItem.className = 'flat-task-item';
+        
+        const taskContent = document.createElement('div');
+        taskContent.className = 'flat-task-content';
+        
+        const taskCheckbox = document.createElement('input');
+        taskCheckbox.type = 'checkbox';
+        taskCheckbox.className = 'flat-task-checkbox';
+        taskCheckbox.checked = task.completed;
+        taskCheckbox.addEventListener('change', () => toggleFlatTaskCompletion(task.nodeIndex, task.id));
+        
+        const taskTextContainer = document.createElement('div');
+        taskTextContainer.className = 'flat-task-text-container';
+        
+        const taskText = document.createElement('div');
+        taskText.className = `flat-task-text ${task.completed ? 'completed' : 'incomplete'}`;
+        taskText.textContent = task.text;
+        
+        const taskNode = document.createElement('div');
+        taskNode.className = 'flat-task-node';
+        taskNode.textContent = `📍 ${task.nodeName}${task.isNodeBlocked ? ' (保留中)' : ''}`;
+        
+        taskTextContainer.appendChild(taskText);
+        taskTextContainer.appendChild(taskNode);
+        
+        taskContent.appendChild(taskCheckbox);
+        taskContent.appendChild(taskTextContainer);
+        
+        taskItem.appendChild(taskContent);
+        
+        // ホバーエフェクト
+        taskItem.addEventListener('mouseenter', function() {
+            this.style.borderColor = color;
+        });
+        
+        taskItem.addEventListener('mouseleave', function() {
+            this.style.borderColor = '#e5e7eb';
+        });
+        
+        taskListContainer.appendChild(taskItem);
+    });
+    
+    groupContainer.appendChild(taskListContainer);
+    container.appendChild(groupContainer);
+}
+
+/**
+ * フラットタスクグループの折りたたみ状態を切り替え
+ * @param {string} groupId - グループID
+ */
+function toggleFlatTaskGroup(groupId) {
+    // 状態を切り替え
+    flatTaskGroupCollapsed[groupId] = !flatTaskGroupCollapsed[groupId];
+    
+    // UIを更新 - data属性を使って正確にグループを特定
+    const targetGroup = document.querySelector(`[data-group-id="${groupId}"]`);
+    
+    if (targetGroup) {
+        const expandIcon = targetGroup.querySelector('.expand-icon');
+        const taskList = targetGroup.querySelector('.flat-task-list');
+        
+        if (flatTaskGroupCollapsed[groupId]) {
+            // 折りたたみ
+            if (taskList) taskList.style.display = 'none';
+            if (expandIcon) expandIcon.style.transform = 'rotate(-90deg)';
+        } else {
+            // 展開
+            if (taskList) taskList.style.display = 'block';
+            if (expandIcon) expandIcon.style.transform = 'rotate(0deg)';
+        }
+    }
+    
+    // 状態を保存
+    saveToLocalStorage();
+}
+
+/**
+ * フラットリスト内のタスク完了状態を切り替え
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} taskId - タスクのID
+ */
+function toggleFlatTaskCompletion(nodeIndex, taskId) {
+    const result = toggleTaskCompletion(nodeIndex, taskId);
+    if (result !== null) {
+        // フラットリストを再描画（グループ間移動対応）
+        renderFlatTaskList();
+        // 全体進捗も更新
+        updateOverallProgress();
+        // 全ノード表示も更新
+        renderAllNodeTasks();
+    }
+}
+
+/**
+ * HTMLエスケープ処理
+ * @param {string} text - エスケープするテキスト
+ * @returns {string} エスケープされたテキスト
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}

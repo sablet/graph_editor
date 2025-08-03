@@ -1188,6 +1188,119 @@
         .memo-edit-cancel:hover {
             background: #4b5563;
         }
+        
+        /* フラットタスクリスト関連のスタイル */
+        .flat-task-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .flat-task-group {
+            margin-bottom: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .flat-group-header {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            transition: background-color 0.2s ease;
+        }
+        
+        .flat-group-header-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .expand-icon {
+            font-size: 14px;
+            transition: transform 0.2s ease;
+        }
+        
+        .group-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .group-count {
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .flat-task-list {
+            padding: 8px;
+        }
+        
+        .flat-task-item {
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .flat-task-item:hover {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .flat-task-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .flat-task-checkbox {
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+        
+        .flat-task-text-container {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .flat-task-text {
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.4;
+            margin-bottom: 4px;
+        }
+        
+        .flat-task-text.completed {
+            color: #6b7280;
+            text-decoration: line-through;
+        }
+        
+        .flat-task-text.incomplete {
+            color: #1f2937;
+        }
+        
+        .flat-task-node {
+            font-size: 12px;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+        
+        .no-tasks-message {
+            color: #9ca3af;
+            text-align: center;
+            padding: 40px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -1325,6 +1438,9 @@
                     <button class="preview-tab-button active" data-preview-tab="all-tasks">
                         📋 全ノード表示
                     </button>
+                    <button class="preview-tab-button" data-preview-tab="task-list">
+                        📝 タスクリスト
+                    </button>
                     <button class="preview-tab-button" data-preview-tab="tasks">
                         📋 ノードタスク管理
                     </button>
@@ -1363,6 +1479,14 @@
                                 placeholder="新しいノードを入力... (Enterで追加)">
                             <button class="add-task-button" onclick="addGlobalNewNode()">追加</button>
                         </div>
+                    </div>
+                </div>
+                
+                <!-- タスクフラットリスト表示セクション -->
+                <div class="section task-list-section" data-preview-section="task-list" style="display: none;">
+                    <h3>📝 タスクフラットリスト</h3>
+                    <div id="flat-task-container" class="flat-task-container">
+                        <!-- フラットなタスクリストがここに表示される -->
                     </div>
                 </div>
                 
