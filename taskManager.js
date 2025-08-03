@@ -1019,3 +1019,270 @@ document.addEventListener('click', function(e) {
         closeAllTaskMenus();
     }
 }, true); // キャプチャフェーズで実行
+
+// グループの折りたたみ状態を管理
+let flatTaskGroupCollapsed = {
+    'incomplete': false,        // 未完了タスク：デフォルト展開
+    'blocked_incomplete': false, // ブロック中の未完了タスク：デフォルト展開
+    'completed': true           // 完了タスク：デフォルト折りたたみ
+};
+
+/**
+ * タスクフラットリスト表示を生成（グループ化対応）
+ */
+function renderFlatTaskList() {
+    const container = document.getElementById('flat-task-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // 全ノードからタスクを収集しグループ化
+    const taskGroups = {
+        incomplete: [],
+        blocked_incomplete: [],
+        completed: []
+    };
+    
+    nodes.forEach((nodeName, nodeIndex) => {
+        const tasks = getNodeTasks(nodeIndex);
+        const nodeStatusInfo = getNodeStatusInfo(nodeIndex);
+        const isNodeBlocked = nodeStatusInfo.id === 'on_hold'; // 保留 = ブロック状態
+        
+        if (tasks && tasks.length > 0) {
+            tasks.forEach(task => {
+                const taskData = {
+                    ...task,
+                    nodeIndex: nodeIndex,
+                    nodeName: nodeName,
+                    isNodeBlocked: isNodeBlocked
+                };
+                
+                if (task.completed) {
+                    taskGroups.completed.push(taskData);
+                } else if (isNodeBlocked) {
+                    taskGroups.blocked_incomplete.push(taskData);
+                } else {
+                    taskGroups.incomplete.push(taskData);
+                }
+            });
+        }
+    });
+    
+    // 全てのグループが空の場合
+    const totalTasks = taskGroups.incomplete.length + taskGroups.blocked_incomplete.length + taskGroups.completed.length;
+    if (totalTasks === 0) {
+        container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 40px; font-style: italic;">タスクがありません</div>';
+        return;
+    }
+    
+    // グループを描画
+    renderTaskGroup(container, 'incomplete', '📝 未完了タスク', taskGroups.incomplete, '#3b82f6');
+    renderTaskGroup(container, 'blocked_incomplete', '⚠️ ブロック中タスク', taskGroups.blocked_incomplete, '#f59e0b');
+    renderTaskGroup(container, 'completed', '✅ 完了タスク', taskGroups.completed, '#059669');
+}
+
+/**
+ * タスクグループを描画
+ * @param {HTMLElement} container - コンテナ要素
+ * @param {string} groupId - グループID
+ * @param {string} groupTitle - グループタイトル
+ * @param {Array} tasks - タスクリスト
+ * @param {string} color - グループカラー
+ */
+function renderTaskGroup(container, groupId, groupTitle, tasks, color) {
+    if (tasks.length === 0) return;
+    
+    const groupContainer = document.createElement('div');
+    groupContainer.className = 'flat-task-group';
+    groupContainer.setAttribute('data-group-id', groupId);
+    groupContainer.style.cssText = `
+        margin-bottom: 20px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    `;
+    
+    // グループヘッダー
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'flat-group-header';
+    groupHeader.style.cssText = `
+        background: ${color}08;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 12px 16px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        user-select: none;
+        transition: background-color 0.2s ease;
+    `;
+    
+    const isCollapsed = flatTaskGroupCollapsed[groupId];
+    groupHeader.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="expand-icon" style="
+                font-size: 14px;
+                color: ${color};
+                transition: transform 0.2s ease;
+                transform: ${isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'};
+            ">▼</span>
+            <span style="font-weight: 600; color: ${color}; font-size: 14px;">
+                ${groupTitle}
+            </span>
+        </div>
+        <span style="
+            background: ${color};
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        ">
+            ${tasks.length}
+        </span>
+    `;
+    
+    // ホバーエフェクト
+    groupHeader.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = `${color}12`;
+    });
+    
+    groupHeader.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = `${color}08`;
+    });
+    
+    // クリックイベント
+    groupHeader.addEventListener('click', function() {
+        toggleFlatTaskGroup(groupId);
+    });
+    
+    groupContainer.appendChild(groupHeader);
+    
+    // タスクリストコンテナ
+    const taskListContainer = document.createElement('div');
+    taskListContainer.className = 'flat-task-list';
+    taskListContainer.style.cssText = `
+        display: ${isCollapsed ? 'none' : 'block'};
+        padding: 8px;
+    `;
+    
+    // タスクを描画
+    tasks.forEach(task => {
+        const taskItem = document.createElement('div');
+        taskItem.className = 'flat-task-item';
+        taskItem.style.cssText = `
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        `;
+        
+        taskItem.innerHTML = `
+            <div style="display: flex; align-items: flex-start; gap: 12px;">
+                <input type="checkbox" 
+                       ${task.completed ? 'checked' : ''} 
+                       onchange="toggleFlatTaskCompletion(${task.nodeIndex}, '${task.id}')"
+                       style="margin-top: 4px; flex-shrink: 0;">
+                <div style="flex: 1; min-width: 0;">
+                    <div class="flat-task-text" style="
+                        font-size: 16px;
+                        font-weight: 600;
+                        color: ${task.completed ? '#6b7280' : '#1f2937'};
+                        line-height: 1.4;
+                        margin-bottom: 4px;
+                        ${task.completed ? 'text-decoration: line-through;' : ''}
+                    ">
+                        ${escapeHtml(task.text)}
+                    </div>
+                    <div class="flat-task-node" style="
+                        font-size: 12px;
+                        color: #9ca3af;
+                        font-weight: 500;
+                    ">
+                        📍 ${escapeHtml(task.nodeName)}${task.isNodeBlocked ? ' (保留中)' : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // ホバーエフェクト
+        taskItem.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = 'white';
+            this.style.borderColor = color;
+            this.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+        });
+        
+        taskItem.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '#fafafa';
+            this.style.borderColor = '#e5e7eb';
+            this.style.boxShadow = 'none';
+        });
+        
+        taskListContainer.appendChild(taskItem);
+    });
+    
+    groupContainer.appendChild(taskListContainer);
+    container.appendChild(groupContainer);
+}
+
+/**
+ * フラットタスクグループの折りたたみ状態を切り替え
+ * @param {string} groupId - グループID
+ */
+function toggleFlatTaskGroup(groupId) {
+    // 状態を切り替え
+    flatTaskGroupCollapsed[groupId] = !flatTaskGroupCollapsed[groupId];
+    
+    // UIを更新 - data属性を使って正確にグループを特定
+    const targetGroup = document.querySelector(`[data-group-id="${groupId}"]`);
+    
+    if (targetGroup) {
+        const expandIcon = targetGroup.querySelector('.expand-icon');
+        const taskList = targetGroup.querySelector('.flat-task-list');
+        
+        if (flatTaskGroupCollapsed[groupId]) {
+            // 折りたたみ
+            if (taskList) taskList.style.display = 'none';
+            if (expandIcon) expandIcon.style.transform = 'rotate(-90deg)';
+        } else {
+            // 展開
+            if (taskList) taskList.style.display = 'block';
+            if (expandIcon) expandIcon.style.transform = 'rotate(0deg)';
+        }
+    }
+    
+    // 状態を保存
+    saveToLocalStorage();
+}
+
+/**
+ * フラットリスト内のタスク完了状態を切り替え
+ * @param {number} nodeIndex - ノードのインデックス
+ * @param {string} taskId - タスクのID
+ */
+function toggleFlatTaskCompletion(nodeIndex, taskId) {
+    const result = toggleTaskCompletion(nodeIndex, taskId);
+    if (result) {
+        // フラットリストを再描画（グループ間移動対応）
+        renderFlatTaskList();
+        // 全体進捗も更新
+        updateOverallProgress();
+        // 全ノード表示も更新
+        renderAllNodeTasks();
+    }
+}
+
+/**
+ * HTMLエスケープ処理
+ * @param {string} text - エスケープするテキスト
+ * @returns {string} エスケープされたテキスト
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}

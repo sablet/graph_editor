@@ -837,6 +837,8 @@ function switchPreviewTab(targetTab) {
     // 特定タブの初期化処理
     if (targetTab === 'all-tasks') {
         renderAllNodesTasks();
+    } else if (targetTab === 'task-list') {
+        renderFlatTaskList();
     } else if (targetTab === 'tasks') {
         updateTaskNodeSelect();
     }

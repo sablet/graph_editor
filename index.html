@@ -1325,6 +1325,9 @@
                     <button class="preview-tab-button active" data-preview-tab="all-tasks">
                         📋 全ノード表示
                     </button>
+                    <button class="preview-tab-button" data-preview-tab="task-list">
+                        📝 タスクリスト
+                    </button>
                     <button class="preview-tab-button" data-preview-tab="tasks">
                         📋 ノードタスク管理
                     </button>
@@ -1363,6 +1366,14 @@
                                 placeholder="新しいノードを入力... (Enterで追加)">
                             <button class="add-task-button" onclick="addGlobalNewNode()">追加</button>
                         </div>
+                    </div>
+                </div>
+                
+                <!-- タスクフラットリスト表示セクション -->
+                <div class="section task-list-section" data-preview-section="task-list" style="display: none;">
+                    <h3>📝 タスクフラットリスト</h3>
+                    <div id="flat-task-container" style="max-height: 600px; overflow-y: auto;">
+                        <!-- フラットなタスクリストがここに表示される -->
                     </div>
                 </div>
                 
