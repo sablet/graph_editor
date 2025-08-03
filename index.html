@@ -1889,7 +1889,7 @@
                         <div class="task-association-section">
                             <div class="task-association-header">
                                 <span>📌 関連タスク設定</span>
-                                <button class="task-clear-button" onclick="clearEmbeddedTaskAssociation()">クリア</button>
+                                <button id="embedded-task-clear-button" class="task-clear-button">クリア</button>
                             </div>
                             <select id="embedded-task-association-select" class="task-association-select">
                                 <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
@@ -1898,7 +1898,7 @@
                         </div>
                         
                         <!-- チャット履歴表示エリア -->
-                        <div class="embedded-chat-history" id="embedded-project-chat-history" style="height: 300px;">
+                        <div class="embedded-chat-history" id="embedded-project-chat-history">
                             <!-- チャットメッセージがここに表示される -->
                         </div>
                         

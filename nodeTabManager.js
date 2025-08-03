@@ -479,14 +479,7 @@ function initializeNodeTabFeatures() {
  * チャット履歴コンテナを一番下までスクロール
  * @param {HTMLElement} container - スクロール対象のコンテナ
  */
-function scrollChatToBottom(container) {
-    if (container) {
-        // 少し遅延を入れてからスクロール（DOMの更新を待つ）
-        setTimeout(() => {
-            container.scrollTop = container.scrollHeight;
-        }, 50);
-    }
-}
+// scrollChatToBottom関数はapp.jsの共通ユーティリティ関数として移動
 
 // 注意: escapeHtml, formatTimestamp, getAssociationLabelは
 // app.jsの共通ユーティリティ関数を使用してください

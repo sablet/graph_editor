@@ -1,3 +1,10 @@
+// モバイル画面判定用の定数（CSSの@media (max-width: 1024px)と統一）
+const MOBILE_BREAKPOINT = 1024;
+
+// フッタータブ名定数
+const LEFT_PANEL_TABS = ['nodes', 'relations', 'chat'];
+const RIGHT_PANEL_TABS = ['all-tasks', 'task-list', 'graph'];
+
 // 初期ノードリスト
 const initialNodes = [
     "行き：持っていくべきものが決まってない",
@@ -248,6 +255,12 @@ document.addEventListener('DOMContentLoaded', function() {
             addSingleNode();
         }
     });
+    
+    // 埋め込みタスククリアボタンのイベントリスナー
+    const embeddedTaskClearButton = document.getElementById('embedded-task-clear-button');
+    if (embeddedTaskClearButton) {
+        embeddedTaskClearButton.addEventListener('click', clearEmbeddedTaskAssociation);
+    }
 });
 
 // ===== プロジェクト管理UI機能 =====
@@ -1263,7 +1276,7 @@ function saveTabState() {
 
 // タブ状態を復元
 function restoreTabState() {
-    const isMobile = window.innerWidth <= 768;
+    const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
     
     if (isMobile) {
         // モバイル表示の場合
@@ -1283,10 +1296,10 @@ function restoreTabState() {
         });
         
         // パネルとセクションを適切に表示
-        if (['nodes', 'relations', 'chat'].includes(mobileTab)) {
+        if (LEFT_PANEL_TABS.includes(mobileTab)) {
             switchFooterTab('left', mobileTab);
             showLeftPanel();
-        } else if (['all-tasks', 'task-list', 'graph'].includes(mobileTab)) {
+        } else if (RIGHT_PANEL_TABS.includes(mobileTab)) {
             switchFooterTab('right', mobileTab);
             showRightPanel();
         }
@@ -1303,18 +1316,16 @@ function initFooterTabs() {
     
     footerTabButtons.forEach(button => {
         button.addEventListener('click', function() {
-            const targetTab = this.getAttribute('data-footer-tab');
+            const targetTab = this.dataset.footerTab;
             switchFooterTab('left', targetTab);
             
             // タブ状態を更新・保存
             activeTabState.left = targetTab;
-            const isMobile = window.innerWidth <= 768;
+            const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
             if (isMobile) {
                 activeTabState.mobile = targetTab;
             }
             saveTabState();
-            
-            console.log('Left panel tab switched to:', targetTab);
         });
     });
 }
@@ -1330,7 +1341,7 @@ function initRightFooterTabs() {
             
             // タブ状態を更新・保存
             activeTabState.right = targetTab;
-            const isMobile = window.innerWidth <= 768;
+            const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
             if (isMobile) {
                 activeTabState.mobile = targetTab;
             }
@@ -1343,3 +1354,18 @@ function initRightFooterTabs() {
 
 // フッタータブの初期化は既にメインのDOMContentLoadedで実行されるため、
 // 重複する初期化は削除
+
+// ===== 共通ユーティリティ関数 =====
+
+/**
+ * チャット履歴を最下部にスクロール
+ * @param {HTMLElement} container - スクロール対象のコンテナ要素
+ */
+function scrollChatToBottom(container) {
+    if (container) {
+        // 少し遅延を入れてからスクロール（DOMの更新を待つ）
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 50);
+    }
+}
