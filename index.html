@@ -731,16 +731,19 @@
             flex: 1;
             background: transparent;
             border: none;
-            padding: 12px 8px;
+            padding: 8px 4px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
-            font-size: 12px;
+            gap: 2px;
+            font-size: 10px;
             color: #6b7280;
             cursor: pointer;
             transition: all 0.2s;
             border-bottom: 2px solid transparent;
+            min-width: 0;
+            text-overflow: ellipsis;
+            overflow: hidden;
         }
         
         .tab-button.active {
@@ -755,8 +758,8 @@
         }
         
         .tab-button svg {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
         }
         
         /* モバイル用レスポンシブデザイン */
@@ -1608,24 +1611,7 @@
         @media (max-width: 1024px) {
             .footer-tabs-left,
             .footer-tabs-right {
-                bottom: 70px; /* モバイルタブの上に配置 */
-                left: 0;
-                right: 0;
-                width: 100%;
-            }
-            
-            .footer-tabs-right {
-                display: none; /* モバイルでは右パネルタブを非表示 */
-            }
-            
-            .footer-tab-button {
-                padding: 10px 6px;
-                font-size: 10px;
-            }
-            
-            .footer-tab-button svg {
-                width: 16px;
-                height: 16px;
+                display: none; /* モバイルでは両方のフッタータブを非表示 */
             }
         }
         
@@ -1748,19 +1734,50 @@
         
         <!-- モバイル用タブナビゲーション -->
         <div class="mobile-tabs" id="mobile-tabs">
-            <button class="tab-button active" data-tab="left">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="tab-button active" data-footer-tab="nodes">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"/>
                     <path d="M12 1v6m0 6v6"/>
                     <path d="m21 12-6-6-6 6-6-6"/>
                 </svg>
-                ノード・関係
+                ノード追加
             </button>
-            <button class="tab-button" data-tab="right">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="tab-button" data-footer-tab="relations">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 6.1H3"/>
+                    <path d="M21 12.1H3"/>
+                    <path d="M15.1 18H3"/>
+                </svg>
+                階層設定
+            </button>
+            <button class="tab-button" data-footer-tab="chat">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                💬 プロジェクトチャット
+            </button>
+            <button class="tab-button" data-right-footer-tab="all-tasks">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <path d="M9 12l2 2 4-4"/>
+                </svg>
+                📋 全ノード表示
+            </button>
+            <button class="tab-button" data-right-footer-tab="task-list">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10,9 9,9 8,9"/>
+                </svg>
+                📝 タスクリスト
+            </button>
+            <button class="tab-button" data-right-footer-tab="graph">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
                 </svg>
-                タスク・グラフ
+                📊 グラフプレビュー
             </button>
         </div>
 

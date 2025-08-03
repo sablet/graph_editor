@@ -203,12 +203,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFullscreenControls();
     setupMobileTabs();
     
-    // プレビューパネルタブ機能初期化（フッタータブに移行したため無効化）
-    // setupPreviewTabs();
-    
-    // 保存されたタブ状態を復元
-    restoreLastActiveTab();
-    
     // タスク機能初期化（基本機能は維持）
     initializeTaskSystem();
     
@@ -850,122 +844,115 @@ function fitToFullscreenContainer() {
 
 // ===== モバイル・タブ機能 =====
 
-function restoreLastActiveTab() {
-    const lastActiveTab = getLastActiveTab();
+function setupMobileTabs() {
+    const tabButtons = document.querySelectorAll('.mobile-tabs .tab-button');
     
-    if (!lastActiveTab) {
-        // デフォルトタブに設定
-        return;
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // data-footer-tab または data-right-footer-tab を取得
+            const footerTab = this.dataset.footerTab;
+            const rightFooterTab = this.dataset.rightFooterTab;
+            
+            // タブの状態を更新
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            if (footerTab) {
+                // 左パネルのタブ切り替え（ノード追加、階層設定、チャット）
+                switchFooterTab('left', footerTab);
+                showLeftPanel();
+            } else if (rightFooterTab) {
+                // 右パネルのタブ切り替え（全ノード表示、タスクリスト、グラフプレビュー）
+                switchFooterTab('right', rightFooterTab);
+                showRightPanel();
+            }
+        });
+    });
+}
+
+function showLeftPanel() {
+    const leftPanel = document.querySelector('.left-panel');
+    const rightPanel = document.querySelector('.right-panel');
+    
+    if (leftPanel && rightPanel) {
+        leftPanel.classList.add('active');
+        rightPanel.classList.remove('active');
     }
+}
+
+function showRightPanel() {
+    const leftPanel = document.querySelector('.left-panel');
+    const rightPanel = document.querySelector('.right-panel');
     
-    if (lastActiveTab.startsWith('preview:')) {
-        // プレビューパネル内のタブ（フッタータブに移行したため無効化）
-        // const previewTab = lastActiveTab.replace('preview:', '');
-        // switchPreviewTab(previewTab);
-        return;
-    } else {
-        // メインタブ（モバイル用）
-        const tabButtons = document.querySelectorAll('.tab-button');
-        const panels = document.querySelectorAll('[data-panel]');
+    if (leftPanel && rightPanel) {
+        leftPanel.classList.remove('active');
+        rightPanel.classList.add('active');
+    }
+}
+
+function switchFooterTab(panelType, targetTab) {
+    if (panelType === 'left') {
+        const leftFooterButtons = document.querySelectorAll('.footer-tabs-left .footer-tab-button');
+        const leftSections = document.querySelectorAll('[data-footer-section]');
         
-        // タブボタンをアクティブに
-        tabButtons.forEach(btn => {
-            if (btn.dataset.tab === lastActiveTab) {
+        // タブの状態を更新
+        leftFooterButtons.forEach(btn => {
+            if (btn.dataset.footerTab === targetTab) {
                 btn.classList.add('active');
             } else {
                 btn.classList.remove('active');
             }
         });
         
-        // パネルを表示
-        panels.forEach(panel => {
-            if (panel.dataset.panel === lastActiveTab) {
-                panel.classList.add('active');
+        // セクションの表示を更新
+        leftSections.forEach(section => {
+            if (section.dataset.footerSection === targetTab) {
+                section.style.display = 'block';
             } else {
-                panel.classList.remove('active');
+                section.style.display = 'none';
             }
         });
+        
+        // 左パネルタブ切り替え時の特定処理
+        if (targetTab === 'chat') {
+            // チャット関連の初期化処理があれば追加
+        }
+        
+    } else if (panelType === 'right') {
+        const rightFooterButtons = document.querySelectorAll('.footer-tabs-right .footer-tab-button');
+        const rightSections = document.querySelectorAll('[data-right-footer-section]');
+        
+        // タブの状態を更新
+        rightFooterButtons.forEach(btn => {
+            if (btn.dataset.rightFooterTab === targetTab) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+        
+        // セクションの表示を更新
+        rightSections.forEach(section => {
+            if (section.dataset.rightFooterSection === targetTab) {
+                section.style.display = 'block';
+            } else {
+                section.style.display = 'none';
+            }
+        });
+        
+        // 右パネルタブ切り替え時の特定処理
+        if (targetTab === 'all-tasks') {
+            renderAllNodeTasks();
+        } else if (targetTab === 'task-list') {
+            if (typeof renderFlatTaskList === 'function') {
+                renderFlatTaskList();
+            }
+        } else if (targetTab === 'graph') {
+            generateMermaidCode();
+        }
     }
 }
 
-function setupMobileTabs() {
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const panels = document.querySelectorAll('[data-panel]');
-    
-    tabButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const targetTab = this.dataset.tab;
-            
-            // タブの状態を更新
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            this.classList.add('active');
-            
-            // パネルの表示を更新
-            panels.forEach(panel => {
-                if (panel.dataset.panel === targetTab) {
-                    panel.classList.add('active');
-                } else {
-                    panel.classList.remove('active');
-                }
-            });
-            
-            // タブ状態を保存
-            saveActiveTab(targetTab);
-        });
-    });
-}
-
-function setupPreviewTabs() {
-    const previewTabButtons = document.querySelectorAll('.preview-tab-button');
-    const previewSections = document.querySelectorAll('[data-preview-section]');
-    
-    previewTabButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const targetTab = this.dataset.previewTab;
-            switchPreviewTab(targetTab);
-        });
-    });
-}
-
-function switchPreviewTab(targetTab) {
-    const previewTabButtons = document.querySelectorAll('.preview-tab-button');
-    const previewSections = document.querySelectorAll('[data-preview-section]');
-    
-    // タブの状態を更新
-    previewTabButtons.forEach(btn => {
-        if (btn.dataset.previewTab === targetTab) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-    
-    // プレビュータブの状態を保存 (preview: プレフィックス付き)
-    saveActiveTab(`preview:${targetTab}`);
-    
-    // セクションの表示を更新
-    previewSections.forEach(section => {
-        if (section.dataset.previewSection === targetTab) {
-            section.style.display = 'block';
-        } else {
-            section.style.display = 'none';
-        }
-    });
-    
-    // 特定タブの初期化処理
-    if (targetTab === 'all-tasks') {
-        renderAllNodesTasks();
-    } else if (targetTab === 'task-list') {
-        renderFlatTaskList();
-    } else if (targetTab === 'project-chat') {
-        if (typeof updateEmbeddedTaskAssociationOptions === 'function') {
-            updateEmbeddedTaskAssociationOptions();
-        }
-        if (typeof renderEmbeddedProjectChatHistory === 'function') {
-            renderEmbeddedProjectChatHistory();
-        }
-    }
-}
 
 function initializeTaskSystem() {
     // タスク関連のUI更新（関数が存在する場合のみ）
@@ -1236,25 +1223,7 @@ function initFooterTabs() {
     footerTabButtons.forEach(button => {
         button.addEventListener('click', function() {
             const targetTab = this.getAttribute('data-footer-tab');
-            
-            // 左パネルのフッタータブボタンのみからactiveクラスを削除
-            footerTabButtons.forEach(btn => btn.classList.remove('active'));
-            
-            // クリックされたタブにactiveクラスを追加
-            this.classList.add('active');
-            
-            // 全ての左パネルセクションを非表示
-            const leftSections = document.querySelectorAll('[data-footer-section]');
-            leftSections.forEach(section => {
-                section.style.display = 'none';
-            });
-            
-            // 対象のセクションを表示
-            const targetSections = document.querySelectorAll(`[data-footer-section="${targetTab}"]`);
-            targetSections.forEach(section => {
-                section.style.display = 'block';
-            });
-            
+            switchFooterTab('left', targetTab);
             console.log('Left panel tab switched to:', targetTab);
         });
     });
@@ -1267,38 +1236,8 @@ function initRightFooterTabs() {
     rightFooterTabButtons.forEach(button => {
         button.addEventListener('click', function() {
             const targetTab = this.getAttribute('data-right-footer-tab');
-            
-            // 右パネルのフッタータブボタンのみからactiveクラスを削除
-            rightFooterTabButtons.forEach(btn => btn.classList.remove('active'));
-            
-            // クリックされたタブにactiveクラスを追加
-            this.classList.add('active');
-            
-            // 全ての右パネルセクションを非表示
-            const rightSections = document.querySelectorAll('[data-right-footer-section]');
-            rightSections.forEach(section => {
-                section.style.display = 'none';
-            });
-            
-            // 対象のセクションを表示
-            const targetSections = document.querySelectorAll(`[data-right-footer-section="${targetTab}"]`);
-            targetSections.forEach(section => {
-                section.style.display = 'block';
-            });
-            
-            // タブ切り替え時の特定処理
-            if (targetTab === 'all-tasks') {
-                renderAllNodeTasks();
-            } else if (targetTab === 'task-list') {
-                if (typeof renderFlatTaskList === 'function') {
-                    renderFlatTaskList();
-                }
-            } else if (targetTab === 'graph') {
-                generateMermaidCode();
-            }
-            
+            switchFooterTab('right', targetTab);
             console.log('Right panel tab switched to:', targetTab);
-            console.log('Target sections found:', targetSections.length);
         });
     });
 }
