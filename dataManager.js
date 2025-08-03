@@ -28,6 +28,13 @@ const STORAGE_KEYS = {
 // データバージョン
 const CURRENT_DATA_VERSION = '1.0.0';
 
+// デフォルトのフラットタスクグループ折りたたみ状態
+const DEFAULT_FLAT_TASK_GROUP_COLLAPSED = {
+    'incomplete': false,        // 未完了タスク：デフォルト展開
+    'blocked_incomplete': false, // ブロック中の未完了タスク：デフォルト展開
+    'completed': true           // 完了タスク：デフォルト折りたたみ
+};
+
 // LocalStorageが利用可能かチェック
 function isLocalStorageAvailable() {
     try {
@@ -156,11 +163,7 @@ function loadProjectData(project) {
     nodeCardCollapsed = {...project.data.nodeCardCollapsed};
     nodeChatHistory = {...(project.data.nodeChatHistory || {})};
     flatTaskGroupCollapsed = {
-        ...{
-            'incomplete': false,
-            'blocked_incomplete': false,
-            'completed': true
-        },
+        ...DEFAULT_FLAT_TASK_GROUP_COLLAPSED,
         ...(project.data.flatTaskGroupCollapsed || {})
     };
 }
@@ -413,11 +416,7 @@ function loadFromLocalStorage() {
             flatTaskGroupCollapsed = JSON.parse(savedFlatTaskGroupCollapsed);
         } else {
             // デフォルト値を設定
-            flatTaskGroupCollapsed = {
-                'incomplete': false,        // 未完了タスク：デフォルト展開
-                'blocked_incomplete': false, // ブロック中の未完了タスク：デフォルト展開
-                'completed': true           // 完了タスク：デフォルト折りたたみ
-            };
+            flatTaskGroupCollapsed = {...DEFAULT_FLAT_TASK_GROUP_COLLAPSED};
         }
         
         console.log('Data loaded from localStorage successfully');
@@ -440,11 +439,7 @@ function initializeWithDefaultData() {
     nodeStatuses = {};
     nodeCardCollapsed = {};
     nodeChatHistory = {};
-    flatTaskGroupCollapsed = {
-        'incomplete': false,        // 未完了タスク：デフォルト展開
-        'blocked_incomplete': false, // ブロック中の未完了タスク：デフォルト展開
-        'completed': true           // 完了タスク：デフォルト折りたたみ
-    };
+    flatTaskGroupCollapsed = {...DEFAULT_FLAT_TASK_GROUP_COLLAPSED};
     console.log('Initialized with default data');
 }
 
