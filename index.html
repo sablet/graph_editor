@@ -31,23 +31,20 @@
         
         .main-content {
             display: grid;
-            grid-template-columns: 3fr 3fr 4fr;
+            grid-template-columns: 1fr 1fr;
             min-height: 800px;
         }
         
-        .nodes-panel {
-            padding: 20px;
+        .left-panel {
+            padding: 20px 20px 80px 20px;
             border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
         }
         
-        .relations-panel {
-            padding: 20px;
-            border-right: 1px solid #e5e7eb;
-        }
-        
-        .preview-panel {
+        .right-panel {
             padding: 20px;
             background-color: #f9fafb;
+            overflow-y: auto;
         }
         
         .section {
@@ -403,6 +400,52 @@
             cursor: grabbing;
         }
         
+        /* タスク関連付けセクションのスタイル */
+        .task-association-section {
+            margin-bottom: 15px;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+            padding: 12px;
+        }
+        
+        .task-association-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .task-association-header span {
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+        
+        .task-clear-button {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .task-clear-button:hover {
+            background: #4b5563;
+        }
+        
+        .task-association-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            color: #1f2937;
+        }
+        
         /* タスク管理スタイル */
         .task-node-selector {
             margin-bottom: 15px;
@@ -733,18 +776,16 @@
                 padding-bottom: 70px;
             }
             
-            .nodes-panel,
-            .relations-panel,
-            .preview-panel {
+            .left-panel,
+            .right-panel {
                 display: none;
                 border-right: none;
                 border-bottom: 1px solid #e5e7eb;
-                padding: 15px;
+                padding: 15px 15px 140px 15px;
             }
             
-            .nodes-panel.active,
-            .relations-panel.active,
-            .preview-panel.active {
+            .left-panel.active,
+            .right-panel.active {
                 display: block;
             }
             
@@ -1507,6 +1548,70 @@
             border-color: #3b82f6;
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
         }
+
+        /* フッタータブナビゲーション（左パネル用） */
+        .footer-tabs {
+            display: flex;
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 50%;
+            z-index: 100;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .footer-tab-button {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 12px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .footer-tab-button.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .footer-tab-button:hover:not(.active) {
+            color: #374151;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .footer-tab-button svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* モバイル表示時のフッタータブ調整 */
+        @media (max-width: 1024px) {
+            .footer-tabs {
+                bottom: 70px; /* モバイルタブの上に配置 */
+                right: auto;
+                width: 100%;
+            }
+            
+            .footer-tab-button {
+                padding: 10px 6px;
+                font-size: 10px;
+            }
+            
+            .footer-tab-button svg {
+                width: 16px;
+                height: 16px;
+            }
+        }
         
         /* フラットタスクリスト関連のスタイル */
         .flat-task-container {
@@ -1627,27 +1732,19 @@
         
         <!-- モバイル用タブナビゲーション -->
         <div class="mobile-tabs" id="mobile-tabs">
-            <button class="tab-button active" data-tab="nodes">
+            <button class="tab-button active" data-tab="left">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"/>
                     <path d="M12 1v6m0 6v6"/>
                     <path d="m21 12-6-6-6 6-6-6"/>
                 </svg>
-                ノード
+                ノード・関係
             </button>
-            <button class="tab-button" data-tab="relations">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M17 6.1H3"/>
-                    <path d="M21 12.1H3"/>
-                    <path d="M15.1 18H3"/>
-                </svg>
-                階層・関係
-            </button>
-            <button class="tab-button" data-tab="preview">
+            <button class="tab-button" data-tab="right">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
                 </svg>
-                プレビュー
+                タスク・グラフ
             </button>
         </div>
 
@@ -1686,8 +1783,10 @@
         </div>
 
         <div class="main-content">
-            <div class="nodes-panel" data-panel="nodes">
-                <div class="section">
+            <!-- 左カラム：ノード追加 + リレーション設定 + プロジェクトチャット -->
+            <div class="left-panel" data-panel="left">
+                <!-- ノード追加セクション -->
+                <div class="section" data-footer-section="nodes" style="display: block;">
                     <h3>ノード追加</h3>
                     <div class="relation-form">
                         <div class="form-row">
@@ -1703,16 +1802,15 @@
                     </div>
                 </div>
                 
-                <div class="section">
+                <div class="section" data-footer-section="nodes" style="display: block;">
                     <h3>ノード一覧</h3>
                     <div class="node-list" id="node-list">
                         <!-- ノードがここに表示される -->
                     </div>
                 </div>
-            </div>
-            
-            <div class="relations-panel" data-panel="relations">
-                <div class="section">
+                
+                <!-- 階層・リレーション設定セクション -->
+                <div class="section" data-footer-section="relations" style="display: none;">
                     <h3>階層・リレーション設定</h3>
                     <div class="relation-form">
                         <div class="form-row">
@@ -1736,32 +1834,66 @@
                     </div>
                 </div>
                 
-                <div class="section">
+                <div class="section" data-footer-section="relations" style="display: none;">
                     <h3>階層関係一覧</h3>
                     <div class="relations-list" id="hierarchy-list">
                         <!-- 階層関係がここに表示される -->
                     </div>
                 </div>
                 
-                <div class="section">
+                <div class="section" data-footer-section="relations" style="display: none;">
                     <h3>リレーション一覧</h3>
                     <div class="relations-list" id="relations-list">
                         <!-- リレーションがここに表示される -->
                     </div>
                 </div>
+                
+                <!-- プロジェクトチャットセクション -->
+                <div class="section" data-footer-section="chat" style="display: none;">
+                    <h3>💬 プロジェクトチャット</h3>
+                    <div class="project-chat-embedded">
+                        <!-- タスク関連付け設定 -->
+                        <div class="task-association-section">
+                            <div class="task-association-header">
+                                <span>📌 関連タスク設定</span>
+                                <button class="task-clear-button" onclick="clearEmbeddedTaskAssociation()">クリア</button>
+                            </div>
+                            <select id="embedded-task-association-select" class="task-association-select">
+                                <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
+                                <!-- ノードオプションは動的に追加 -->
+                            </select>
+                        </div>
+                        
+                        <!-- チャット履歴表示エリア -->
+                        <div class="embedded-chat-history" id="embedded-project-chat-history" style="height: 300px;">
+                            <!-- チャットメッセージがここに表示される -->
+                        </div>
+                        
+                        <!-- メッセージ入力エリア -->
+                        <div class="embedded-chat-input-section">
+                            <textarea 
+                                id="embedded-project-chat-input" 
+                                class="embedded-chat-input" 
+                                placeholder="新しいメッセージを入力... (Ctrl+Enterで送信)"
+                                rows="3"></textarea>
+                            <div class="embedded-chat-input-actions">
+                                <span class="input-hint">Ctrl+Enter: 送信</span>
+                                <button class="send-button" onclick="sendEmbeddedProjectChatMessage()">送信</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <div class="preview-panel" data-panel="preview">
-                <!-- プレビューパネル用タブナビゲーション -->
+            <!-- 右カラム：その他の機能 -->
+            <div class="right-panel" data-panel="right">
+                <!-- 右パネル用タブナビゲーション -->
                 <div class="preview-tabs">
-                    <button class="preview-tab-button" data-preview-tab="all-tasks">
+                    <button class="preview-tab-button active" data-preview-tab="all-tasks">
                         📋 全ノード表示
                     </button>
                     <button class="preview-tab-button" data-preview-tab="task-list">
                         📝 タスクリスト
-                    </button>
-                    <button class="preview-tab-button active" data-preview-tab="project-chat">
-                        💬 プロジェクトチャット
                     </button>
                     <button class="preview-tab-button" data-preview-tab="graph">
                         📊 グラフプレビュー
@@ -1769,7 +1901,7 @@
                 </div>
                 
                 <!-- 全ノードタスク表示セクション -->
-                <div class="section all-tasks-section" data-preview-section="all-tasks" style="display: none;">
+                <div class="section all-tasks-section" data-preview-section="all-tasks" style="display: block;">
                     <h3>全ノードタスク・ステータス管理</h3>
                     
                     <!-- 全体プログレスバー -->
@@ -1809,40 +1941,6 @@
                     </div>
                 </div>
                 
-                <div class="section project-chat-section" data-preview-section="project-chat" style="display: block;">
-                    <h3>💬 プロジェクトチャット</h3>
-                    <div class="project-chat-embedded">
-                        <!-- タスク関連付け設定 -->
-                        <div class="task-association-section">
-                            <div class="task-association-header">
-                                <span>📌 関連タスク設定</span>
-                                <button class="task-clear-button" onclick="clearEmbeddedTaskAssociation()">クリア</button>
-                            </div>
-                            <select id="embedded-task-association-select" class="task-association-select">
-                                <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
-                                <!-- ノードオプションは動的に追加 -->
-                            </select>
-                        </div>
-                        
-                        <!-- チャット履歴表示エリア -->
-                        <div class="embedded-chat-history" id="embedded-project-chat-history">
-                            <!-- チャットメッセージがここに表示される -->
-                        </div>
-                        
-                        <!-- メッセージ入力エリア -->
-                        <div class="embedded-chat-input-section">
-                            <textarea 
-                                id="embedded-project-chat-input" 
-                                class="embedded-chat-input" 
-                                placeholder="新しいメッセージを入力... (Ctrl+Enterで送信)"
-                                rows="3"></textarea>
-                            <div class="embedded-chat-input-actions">
-                                <span class="input-hint">Ctrl+Enter: 送信</span>
-                                <button class="send-button" onclick="sendEmbeddedProjectChatMessage()">送信</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 
                 <div class="section graph-section" data-preview-section="graph" style="display: none;">
                     <h3>グラフプレビュー</h3>
@@ -1876,6 +1974,32 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- フッタータブナビゲーション（左パネル用） -->
+    <div class="footer-tabs" id="footer-tabs">
+        <button class="footer-tab-button active" data-footer-tab="nodes">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6m0 6v6"/>
+                <path d="m21 12-6-6-6 6-6-6"/>
+            </svg>
+            ノード追加
+        </button>
+        <button class="footer-tab-button" data-footer-tab="relations">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 6.1H3"/>
+                <path d="M21 12.1H3"/>
+                <path d="M15.1 18H3"/>
+            </svg>
+            階層設定
+        </button>
+        <button class="footer-tab-button" data-footer-tab="chat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            💬 プロジェクトチャット
+        </button>
     </div>
 
     <!-- 全画面モーダル -->

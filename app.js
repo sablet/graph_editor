@@ -1207,3 +1207,37 @@ function editChatMessage(messageId, messages, saveHandlerName, cancelHandlerName
         });
     }
 }
+
+// フッタータブ切り替え機能
+function initFooterTabs() {
+    const footerTabButtons = document.querySelectorAll('.footer-tab-button');
+    
+    footerTabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const targetTab = this.getAttribute('data-footer-tab');
+            
+            // 全てのフッタータブボタンからactiveクラスを削除
+            footerTabButtons.forEach(btn => btn.classList.remove('active'));
+            
+            // クリックされたタブにactiveクラスを追加
+            this.classList.add('active');
+            
+            // 全ての左パネルセクションを非表示
+            const leftSections = document.querySelectorAll('[data-footer-section]');
+            leftSections.forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // 対象のセクションを表示
+            const targetSections = document.querySelectorAll(`[data-footer-section="${targetTab}"]`);
+            targetSections.forEach(section => {
+                section.style.display = 'block';
+            });
+        });
+    });
+}
+
+// DOMContentLoadedイベントで初期化
+document.addEventListener('DOMContentLoaded', function() {
+    initFooterTabs();
+});
