@@ -793,6 +793,43 @@ function updateProjectChatMessage(messageId, newContent) {
 }
 
 /**
+ * プロジェクト全体チャットメッセージを更新（関連付けも含む）
+ * @param {string} messageId - メッセージID
+ * @param {string} newContent - 新しいメッセージ内容
+ * @param {object} newAssociation - 新しい関連付け設定
+ * @returns {boolean} 更新成功の場合true
+ */
+function updateProjectChatMessageWithAssociation(messageId, newContent, newAssociation) {
+    if (!projectChatHistory || typeof newContent !== 'string' || newContent.trim() === '') {
+        return false;
+    }
+    
+    const message = projectChatHistory.find(msg => {
+        if (msg.id === messageId) {
+            // プロジェクト管理が有効な場合は、現在のプロジェクトのメッセージのみ更新対象
+            if (currentProjectId && msg.projectId !== currentProjectId) {
+                return false; // 他のプロジェクトのメッセージは対象外
+            }
+            return true; // 更新対象
+        }
+        return false;
+    });
+    
+    if (message) {
+        message.content = newContent.trim();
+        message.associatedTask = newAssociation;
+        message.timestamp = new Date().toISOString(); // 更新時刻を記録
+        
+        // デバウンス版の保存を使用してパフォーマンスを改善
+        saveToLocalStorage();
+        
+        return true;
+    }
+    
+    return false;
+}
+
+/**
  * プロジェクト全体チャット履歴を全て削除
  * @returns {boolean} 削除成功の場合true
  */

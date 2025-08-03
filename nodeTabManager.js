@@ -320,9 +320,25 @@ function editEmbeddedMessage(messageId) {
     const contentElement = messageItem.querySelector('.message-content');
     const originalContent = message.content;
     
+    // 現在の関連付けを取得
+    const currentAssociation = message.associatedTask || { type: 'global' };
+    
+    // ノード選択ドロップダウンのオプションを生成
+    let nodeOptions = '<option value="global">🌍 プロジェクト全体</option>';
+    nodes.forEach((node, index) => {
+        const selected = currentAssociation.type === 'node' && currentAssociation.nodeIndex === index ? ' selected' : '';
+        nodeOptions += `<option value="node_${index}"${selected}>📍 [ノード${index + 1}: ${node.substring(0, 20)}${node.length > 20 ? '...' : ''}]</option>`;
+    });
+    
     // 編集フォームを作成
     contentElement.innerHTML = `
         <textarea class="message-edit-textarea" id="edit-textarea-${messageId}">${escapeHtml(originalContent)}</textarea>
+        <div class="message-edit-node-selection">
+            <label for="edit-node-select-${messageId}">関連ノード:</label>
+            <select id="edit-node-select-${messageId}" class="message-edit-node-select">
+                ${nodeOptions}
+            </select>
+        </div>
         <div class="message-edit-actions">
             <button class="message-edit-button message-edit-save" onclick="saveEmbeddedMessageEdit('${messageId}')">保存</button>
             <button class="message-edit-button message-edit-cancel" onclick="cancelEmbeddedMessageEdit()">キャンセル</button>
@@ -354,6 +370,7 @@ function editEmbeddedMessage(messageId) {
  */
 function saveEmbeddedMessageEdit(messageId) {
     const textarea = document.getElementById(`edit-textarea-${messageId}`);
+    const nodeSelect = document.getElementById(`edit-node-select-${messageId}`);
     if (!textarea) return;
     
     const newContent = textarea.value.trim();
@@ -364,8 +381,17 @@ function saveEmbeddedMessageEdit(messageId) {
         return;
     }
     
-    // dataManager.jsのupdateProjectChatMessage関数を使用
-    const updated = updateProjectChatMessage(messageId, newContent);
+    // 新しい関連付けを取得
+    let newAssociation = { type: 'global' };
+    if (nodeSelect && nodeSelect.value !== 'global') {
+        const nodeIndex = parseInt(nodeSelect.value.replace('node_', ''));
+        if (isValidNodeIndex(nodeIndex)) {
+            newAssociation = { type: 'node', nodeIndex: nodeIndex };
+        }
+    }
+    
+    // dataManager.jsのupdateProjectChatMessage関数を使用（内容と関連付けの両方を更新）
+    const updated = updateProjectChatMessageWithAssociation(messageId, newContent, newAssociation);
     
     if (updated) {
         // チャット履歴を更新
