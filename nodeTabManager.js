@@ -112,7 +112,7 @@ function updateEmbeddedTaskAssociationOptions() {
     });
     
     // 選択値を復元（有効な場合のみ）
-    if (currentValue === 'global' || currentValue === 'none') {
+    if (currentValue === 'global') {
         select.value = currentValue;
     } else if (currentValue.startsWith('node_')) {
         const nodeIndex = parseInt(currentValue.replace('node_', ''));
@@ -170,13 +170,13 @@ function createEmbeddedChatMessageElement(message) {
     
     messageItem.innerHTML = `
         <div class="message-header">
-            <span class="association-label">${associationLabel}</span>
             <span class="message-timestamp">${timestamp}</span>
             <div class="message-menu">
                 <button class="message-menu-button" onclick="toggleEmbeddedMessageMenu(event, '${message.id}')">⋯</button>
             </div>
         </div>
         <div class="message-content">${escapeHtml(message.content)}</div>
+        <span class="association-label">${associationLabel}</span>
     `;
     
     return messageItem;
@@ -522,8 +522,6 @@ function getAssociationLabel(associatedTask) {
                 return `📍 [ノード${associatedTask.nodeIndex + 1}: ${nodeText.substring(0, 20)}${nodeText.length > 20 ? '...' : ''}]`;
             }
             return '📍 [ノード: 削除済み]';
-        case 'none':
-            return '⚡ [タスクなし]';
         default:
             return '🏷️ [全体]';
     }

@@ -1314,12 +1314,13 @@
         }
         
         .project-chat-message {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            padding: 12px 16px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            margin-bottom: 16px;
+            padding: 8px 0;
+            box-shadow: none;
+            position: relative;
         }
         
         .message-header {
@@ -1330,17 +1331,25 @@
         }
         
         .association-label {
-            font-size: 12px;
-            font-weight: 600;
-            color: #8b5cf6;
-            background: #f3e8ff;
+            position: absolute;
+            bottom: -2px;
+            right: 0;
+            font-size: 10px;
+            font-weight: 500;
+            color: #6b7280;
+            background: #f3f4f6;
             padding: 2px 6px;
-            border-radius: 4px;
+            border-radius: 12px;
+            white-space: nowrap;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .message-timestamp {
             font-size: 12px;
             color: #6b7280;
+            white-space: nowrap;
         }
         
         .message-menu {
@@ -1368,6 +1377,8 @@
             line-height: 1.5;
             white-space: pre-wrap;
             word-break: break-word;
+            margin: 0 0 20px 0;
+            padding: 0;
         }
         
         .message-menu-dropdown {
@@ -1930,7 +1941,6 @@
                             </div>
                             <select id="embedded-task-association-select" class="task-association-select">
                                 <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
-                                <option value="none">⚡ [タスクなし] - 関連付けなし</option>
                                 <!-- ノードオプションは動的に追加 -->
                             </select>
                         </div>
@@ -2030,7 +2040,6 @@
                     </div>
                     <select id="task-association-select" class="task-association-select">
                         <option value="global">🏷️ [全体] - プロジェクト全体に関するメモ</option>
-                        <option value="none">⚡ [タスクなし] - 関連付けなし</option>
                         <!-- ノードオプションは動的に追加 -->
                     </select>
                 </div>

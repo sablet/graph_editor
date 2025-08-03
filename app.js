@@ -128,9 +128,7 @@ function resetNodeSelection() {
 function validateAndGetAssociatedTask(selectedValue, select) {
     let associatedTask = { type: 'global' };
     
-    if (selectedValue === 'none') {
-        associatedTask = { type: 'none' };
-    } else if (selectedValue.startsWith('node_')) {
+    if (selectedValue.startsWith('node_')) {
         const nodeIndex = parseInt(selectedValue.replace('node_', ''));
         if (isValidNodeIndex(nodeIndex)) {
             associatedTask = {

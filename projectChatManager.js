@@ -77,7 +77,7 @@ function updateTaskAssociationOptions() {
     });
     
     // 選択値を復元（有効な場合のみ）
-    if (currentValue === 'global' || currentValue === 'none') {
+    if (currentValue === 'global') {
         select.value = currentValue;
     } else if (currentValue.startsWith('node_')) {
         const nodeIndex = parseInt(currentValue.replace('node_', ''));
@@ -148,13 +148,13 @@ function createProjectChatMessageElement(message) {
     
     messageItem.innerHTML = `
         <div class="message-header">
-            <span class="association-label">${associationLabel}</span>
             <span class="message-timestamp">${timestamp}</span>
             <div class="message-menu">
                 <button class="message-menu-button" onclick="toggleProjectMessageMenu(event, '${message.id}')">⋯</button>
             </div>
         </div>
         <div class="message-content">${escapeHtml(message.content)}</div>
+        <span class="association-label">${associationLabel}</span>
     `;
     
     return messageItem;
@@ -175,8 +175,6 @@ function getAssociationLabel(associatedTask) {
                 return `📍 [ノード${associatedTask.nodeIndex + 1}: ${nodeText.substring(0, 20)}${nodeText.length > 20 ? '...' : ''}]`;
             }
             return '📍 [ノード: 削除済み]';
-        case 'none':
-            return '⚡ [タスクなし]';
         default:
             return '🏷️ [全体]';
     }
@@ -422,9 +420,7 @@ function initializeProjectChatFeatures() {
     if (select) {
         select.addEventListener('change', function(e) {
             const selectedValue = e.target.value;
-            if (selectedValue === 'none') {
-                currentTaskAssociation = { type: 'none' };
-            } else if (selectedValue.startsWith('node_')) {
+            if (selectedValue.startsWith('node_')) {
                 const nodeIndex = parseInt(selectedValue.replace('node_', ''));
                 currentTaskAssociation = {
                     type: 'node',
