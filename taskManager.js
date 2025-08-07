@@ -440,7 +440,7 @@ function editTask(nodeIndex, taskId, taskTextSpan) {
 // ===== 全ノード表示でのタスク管理機能 =====
 
 /**
- * 全ノードのタスクとステータスを表示
+ * 全ノードのタスクとステータスを表示（ステータス別グルーピング）
  */
 function renderAllNodeTasks() {
     const container = document.getElementById('all-tasks-container');
@@ -453,12 +453,151 @@ function renderAllNodeTasks() {
         return;
     }
     
+    // ノードをステータス別にグループ化
+    const nodeGroups = Object.fromEntries(
+        Object.values(NODE_STATUSES).map(status => [status.id, []])
+    );
+    
     // 共通の階層情報付きノードリストを使用
     const hierarchicalNodeInfo = getHierarchicalNodeInfo();
     
     hierarchicalNodeInfo.forEach(nodeInfo => {
-        createNodeTaskCard(nodeInfo.nodeIndex, container, nodeInfo.depth, nodeInfo.isChild);
+        const statusInfo = getNodeStatusInfo(nodeInfo.nodeIndex);
+        const statusId = statusInfo.id;
+        
+        if (nodeGroups[statusId]) {
+            nodeGroups[statusId].push(nodeInfo);
+        } else {
+            // デフォルトは未開始に分類
+            nodeGroups.not_started.push(nodeInfo);
+        }
     });
+    
+    // ステータス表示順序とラベル
+    const statusDisplayOrder = [
+        NODE_STATUSES.NOT_STARTED,
+        NODE_STATUSES.IN_PROGRESS,
+        NODE_STATUSES.ON_HOLD,
+        NODE_STATUSES.COMPLETED
+    ];
+    
+    // グループごとに表示
+    statusDisplayOrder.forEach(statusConfig => {
+        const groupNodes = nodeGroups[statusConfig.id];
+        if (groupNodes && groupNodes.length > 0) {
+            renderNodeStatusGroup(container, statusConfig, groupNodes);
+        }
+    });
+    
+    // すべてのグループが空の場合
+    const totalNodes = Object.values(nodeGroups).reduce((sum, group) => sum + group.length, 0);
+    if (totalNodes === 0) {
+        container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 40px; font-style: italic;">ノードがありません</div>';
+    }
+}
+
+/**
+ * ノードステータスグループを描画
+ * @param {HTMLElement} container - コンテナ要素
+ * @param {Object} statusConfig - ステータス設定
+ * @param {Array} groupNodes - グループ内のノード情報リスト
+ */
+function renderNodeStatusGroup(container, statusConfig, groupNodes) {
+    const groupContainer = document.createElement('div');
+    groupContainer.className = 'node-status-group';
+    groupContainer.setAttribute('data-status-group', statusConfig.id);
+    
+    // グループヘッダー
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'node-status-group-header';
+    // 静的スタイルはCSSクラスで、動的な色のみインラインで設定
+    groupHeader.style.backgroundColor = `${statusConfig.color}08`;
+    
+    // 未完了以外は初期状態で折りたたみ
+    const defaultCollapsed = statusConfig.id !== 'not_started';
+    const isCollapsed = nodeStatusGroupCollapsed?.[statusConfig.id] ?? defaultCollapsed;
+    
+    // ヘッダーコンテンツ
+    const headerContent = document.createElement('div');
+    headerContent.className = 'header-content';
+    
+    const expandIcon = document.createElement('span');
+    expandIcon.className = 'expand-icon';
+    // 動的な色とトランスフォームのみインラインで設定
+    expandIcon.style.color = statusConfig.color;
+    expandIcon.style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+    expandIcon.textContent = '▼';
+    
+    const groupTitle = document.createElement('span');
+    groupTitle.className = 'group-title';
+    groupTitle.style.color = statusConfig.color;
+    groupTitle.textContent = statusConfig.label;
+    
+    const groupCount = document.createElement('span');
+    groupCount.className = 'group-count';
+    groupCount.style.backgroundColor = statusConfig.color;
+    groupCount.textContent = groupNodes.length;
+    
+    headerContent.appendChild(expandIcon);
+    headerContent.appendChild(groupTitle);
+    groupHeader.appendChild(headerContent);
+    groupHeader.appendChild(groupCount);
+    
+    // ホバーエフェクト（動的な色のみ）
+    groupHeader.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = `${statusConfig.color}12`;
+    });
+    
+    groupHeader.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = `${statusConfig.color}08`;
+    });
+    
+    // クリックイベント（折りたたみ機能）
+    groupHeader.addEventListener('click', function() {
+        toggleNodeStatusGroup(statusConfig.id);
+    });
+    
+    // ノードリストコンテンツ
+    const groupContent = document.createElement('div');
+    groupContent.className = 'node-status-group-content';
+    groupContent.style.display = isCollapsed ? 'none' : 'block';
+    
+    // 各ノードのタスクカードを追加
+    groupNodes.forEach(nodeInfo => {
+        createNodeTaskCard(nodeInfo.nodeIndex, groupContent, nodeInfo.depth, nodeInfo.isChild);
+    });
+    
+    groupContainer.appendChild(groupHeader);
+    groupContainer.appendChild(groupContent);
+    container.appendChild(groupContainer);
+}
+
+/**
+ * ノードステータスグループの折りたたみ切り替え
+ * @param {string} statusId - ステータスID
+ */
+function toggleNodeStatusGroup(statusId) {
+    const isCollapsed = nodeStatusGroupCollapsed[statusId] ?? false;
+    nodeStatusGroupCollapsed[statusId] = !isCollapsed;
+    
+    // UI更新
+    const groupElement = document.querySelector(`[data-status-group="${statusId}"]`);
+    if (groupElement) {
+        const header = groupElement.querySelector('.node-status-group-header');
+        const content = groupElement.querySelector('.node-status-group-content');
+        const expandIcon = header.querySelector('.expand-icon');
+        
+        if (nodeStatusGroupCollapsed[statusId]) {
+            content.style.display = 'none';
+            expandIcon.style.transform = 'rotate(-90deg)';
+        } else {
+            content.style.display = 'block';
+            expandIcon.style.transform = 'rotate(0deg)';
+        }
+    }
+    
+    // LocalStorage保存
+    saveToLocalStorage();
 }
 
 /**
@@ -504,7 +643,8 @@ function createNodeTaskCard(nodeIndex, container, depth = 0, isChild = false) {
         cursor: pointer;
     `;
     
-    const isCollapsed = nodeCardCollapsed[nodeIndex] || false;
+    // デフォルトは折りたたみ状態（true）、記録されていれば記録値を使用
+    const isCollapsed = nodeCardCollapsed[nodeIndex] ?? true;
     const expandIcon = document.createElement('span');
     expandIcon.textContent = isCollapsed ? '▶' : '▼';
     expandIcon.className = 'expand-icon';
@@ -630,7 +770,7 @@ function createNodeTaskCard(nodeIndex, container, depth = 0, isChild = false) {
  * @param {HTMLElement} addTaskForm - タスク追加フォーム要素
  */
 function toggleNodeCard(nodeIndex, expandIcon, tasksList, addTaskForm) {
-    const isCurrentlyCollapsed = nodeCardCollapsed[nodeIndex] || false;
+    const isCurrentlyCollapsed = nodeCardCollapsed[nodeIndex] ?? true;
     
     if (isCurrentlyCollapsed) {
         // 展開

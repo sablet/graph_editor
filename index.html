@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>グラフエディタ</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <style>
@@ -960,6 +960,72 @@
             overflow: hidden;
         }
         
+        .node-status-group {
+            margin-bottom: 24px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            overflow: hidden;
+        }
+        
+        .node-status-group-header {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            user-select: none;
+        }
+        
+        .node-status-group-content {
+            transition: all 0.3s ease;
+        }
+        
+        .node-status-group-content .node-task-group {
+            margin-bottom: 12px;
+            margin-left: 16px;
+            margin-right: 16px;
+            border-left: 3px solid #e5e7eb;
+            border-right: none;
+            border-top: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e5e7eb;
+            border-radius: 0 8px 8px 0;
+            box-shadow: none;
+            background: #fafbfc;
+        }
+        
+        .node-status-group-content .node-task-group:first-child {
+            border-top-left-radius: 0;
+            border-top-right-radius: 8px;
+        }
+        
+        .node-status-group-content .node-task-group:last-child {
+            margin-bottom: 16px;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 8px;
+        }
+        
+        /* 未完了グループのノードは特別なスタイル */
+        .node-status-group[data-status-group="not_started"] .node-status-group-content .node-task-group {
+            border-left: 3px solid #6b7280;
+            background: #f8f9fa;
+        }
+        
+        /* 進行中グループのノードは黄色のアクセント */
+        .node-status-group[data-status-group="in_progress"] .node-status-group-content .node-task-group {
+            border-left: 3px solid #f59e0b;
+            background: #fffbeb;
+        }
+        
+        /* 保留グループのノードは赤のアクセント */
+        .node-status-group[data-status-group="on_hold"] .node-status-group-content .node-task-group {
+            border-left: 3px solid #ef4444;
+            background: #fef2f2;
+        }
+        
+        /* 完了グループのノードは緑のアクセント */
+        .node-status-group[data-status-group="completed"] .node-status-group-content .node-task-group {
+            border-left: 3px solid #10b981;
+            background: #f0fdf4;
+        }
+        
         .node-header {
             border-bottom: 1px solid #e5e7eb;
             padding: 12px 16px;
@@ -1000,6 +1066,11 @@
         
         .tasks-list {
             padding: 16px;
+        }
+        
+        /* ステータスグループ内のタスクリストはより控えめなパディング */
+        .node-status-group-content .tasks-list {
+            padding: 12px 16px;
         }
         
         .add-task-form {
