@@ -454,12 +454,9 @@ function renderAllNodeTasks() {
     }
     
     // ノードをステータス別にグループ化
-    const nodeGroups = {
-        not_started: [],
-        in_progress: [],
-        on_hold: [],
-        completed: []
-    };
+    const nodeGroups = Object.fromEntries(
+        Object.values(NODE_STATUSES).map(status => [status.id, []])
+    );
     
     // 共通の階層情報付きノードリストを使用
     const hierarchicalNodeInfo = getHierarchicalNodeInfo();
@@ -478,10 +475,10 @@ function renderAllNodeTasks() {
     
     // ステータス表示順序とラベル
     const statusDisplayOrder = [
-        { id: 'not_started', label: '未開始', color: '#6b7280' },
-        { id: 'in_progress', label: '進行中', color: '#f59e0b' },
-        { id: 'on_hold', label: '保留', color: '#ef4444' },
-        { id: 'completed', label: '完了', color: '#10b981' }
+        NODE_STATUSES.NOT_STARTED,
+        NODE_STATUSES.IN_PROGRESS,
+        NODE_STATUSES.ON_HOLD,
+        NODE_STATUSES.COMPLETED
     ];
     
     // グループごとに表示
@@ -509,72 +506,36 @@ function renderNodeStatusGroup(container, statusConfig, groupNodes) {
     const groupContainer = document.createElement('div');
     groupContainer.className = 'node-status-group';
     groupContainer.setAttribute('data-status-group', statusConfig.id);
-    groupContainer.style.cssText = `
-        margin-bottom: 24px;
-        border-radius: 8px;
-        border: 1px solid #e5e7eb;
-        background: white;
-        overflow: hidden;
-    `;
     
     // グループヘッダー
     const groupHeader = document.createElement('div');
     groupHeader.className = 'node-status-group-header';
-    groupHeader.style.cssText = `
-        background: ${statusConfig.color}08;
-        border-bottom: 1px solid #e5e7eb;
-        padding: 12px 16px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    `;
+    // 静的スタイルはCSSクラスで、動的な色のみインラインで設定
+    groupHeader.style.backgroundColor = `${statusConfig.color}08`;
     
     // 未完了以外は初期状態で折りたたみ
     const defaultCollapsed = statusConfig.id !== 'not_started';
-    const isCollapsed = nodeStatusGroupCollapsed?.[statusConfig.id] !== undefined 
-        ? nodeStatusGroupCollapsed[statusConfig.id] 
-        : defaultCollapsed;
+    const isCollapsed = nodeStatusGroupCollapsed?.[statusConfig.id] ?? defaultCollapsed;
     
     // ヘッダーコンテンツ
     const headerContent = document.createElement('div');
-    headerContent.style.cssText = `
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    `;
+    headerContent.className = 'header-content';
     
     const expandIcon = document.createElement('span');
     expandIcon.className = 'expand-icon';
-    expandIcon.style.cssText = `
-        font-size: 14px;
-        color: ${statusConfig.color};
-        transition: transform 0.2s ease;
-        transform: ${isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'};
-        user-select: none;
-    `;
+    // 動的な色とトランスフォームのみインラインで設定
+    expandIcon.style.color = statusConfig.color;
+    expandIcon.style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
     expandIcon.textContent = '▼';
     
     const groupTitle = document.createElement('span');
-    groupTitle.style.cssText = `
-        font-weight: 600;
-        font-size: 16px;
-        color: ${statusConfig.color};
-    `;
+    groupTitle.className = 'group-title';
+    groupTitle.style.color = statusConfig.color;
     groupTitle.textContent = statusConfig.label;
     
     const groupCount = document.createElement('span');
-    groupCount.style.cssText = `
-        background: ${statusConfig.color};
-        color: white;
-        padding: 4px 8px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 500;
-        min-width: 20px;
-        text-align: center;
-    `;
+    groupCount.className = 'group-count';
+    groupCount.style.backgroundColor = statusConfig.color;
     groupCount.textContent = groupNodes.length;
     
     headerContent.appendChild(expandIcon);
@@ -582,7 +543,7 @@ function renderNodeStatusGroup(container, statusConfig, groupNodes) {
     groupHeader.appendChild(headerContent);
     groupHeader.appendChild(groupCount);
     
-    // ホバーエフェクト
+    // ホバーエフェクト（動的な色のみ）
     groupHeader.addEventListener('mouseenter', function() {
         this.style.backgroundColor = `${statusConfig.color}12`;
     });
@@ -599,10 +560,7 @@ function renderNodeStatusGroup(container, statusConfig, groupNodes) {
     // ノードリストコンテンツ
     const groupContent = document.createElement('div');
     groupContent.className = 'node-status-group-content';
-    groupContent.style.cssText = `
-        display: ${isCollapsed ? 'none' : 'block'};
-        transition: all 0.3s ease;
-    `;
+    groupContent.style.display = isCollapsed ? 'none' : 'block';
     
     // 各ノードのタスクカードを追加
     groupNodes.forEach(nodeInfo => {
@@ -619,7 +577,7 @@ function renderNodeStatusGroup(container, statusConfig, groupNodes) {
  * @param {string} statusId - ステータスID
  */
 function toggleNodeStatusGroup(statusId) {
-    const isCollapsed = nodeStatusGroupCollapsed[statusId] || false;
+    const isCollapsed = nodeStatusGroupCollapsed[statusId] ?? false;
     nodeStatusGroupCollapsed[statusId] = !isCollapsed;
     
     // UI更新
@@ -686,9 +644,7 @@ function createNodeTaskCard(nodeIndex, container, depth = 0, isChild = false) {
     `;
     
     // デフォルトは折りたたみ状態（true）、記録されていれば記録値を使用
-    const isCollapsed = nodeCardCollapsed[nodeIndex] !== undefined 
-        ? nodeCardCollapsed[nodeIndex] 
-        : true;
+    const isCollapsed = nodeCardCollapsed[nodeIndex] ?? true;
     const expandIcon = document.createElement('span');
     expandIcon.textContent = isCollapsed ? '▶' : '▼';
     expandIcon.className = 'expand-icon';
@@ -814,7 +770,7 @@ function createNodeTaskCard(nodeIndex, container, depth = 0, isChild = false) {
  * @param {HTMLElement} addTaskForm - タスク追加フォーム要素
  */
 function toggleNodeCard(nodeIndex, expandIcon, tasksList, addTaskForm) {
-    const isCurrentlyCollapsed = nodeCardCollapsed[nodeIndex] || false;
+    const isCurrentlyCollapsed = nodeCardCollapsed[nodeIndex] ?? true;
     
     if (isCurrentlyCollapsed) {
         // 展開
