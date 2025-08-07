@@ -440,7 +440,7 @@ function editTask(nodeIndex, taskId, taskTextSpan) {
 // ===== 全ノード表示でのタスク管理機能 =====
 
 /**
- * 全ノードのタスクとステータスを表示
+ * 全ノードのタスクとステータスを表示（ステータス別グルーピング）
  */
 function renderAllNodeTasks() {
     const container = document.getElementById('all-tasks-container');
@@ -453,12 +453,193 @@ function renderAllNodeTasks() {
         return;
     }
     
+    // ノードをステータス別にグループ化
+    const nodeGroups = {
+        not_started: [],
+        in_progress: [],
+        on_hold: [],
+        completed: []
+    };
+    
     // 共通の階層情報付きノードリストを使用
     const hierarchicalNodeInfo = getHierarchicalNodeInfo();
     
     hierarchicalNodeInfo.forEach(nodeInfo => {
-        createNodeTaskCard(nodeInfo.nodeIndex, container, nodeInfo.depth, nodeInfo.isChild);
+        const statusInfo = getNodeStatusInfo(nodeInfo.nodeIndex);
+        const statusId = statusInfo.id;
+        
+        if (nodeGroups[statusId]) {
+            nodeGroups[statusId].push(nodeInfo);
+        } else {
+            // デフォルトは未開始に分類
+            nodeGroups.not_started.push(nodeInfo);
+        }
     });
+    
+    // ステータス表示順序とラベル
+    const statusDisplayOrder = [
+        { id: 'not_started', label: '未開始', color: '#6b7280' },
+        { id: 'in_progress', label: '進行中', color: '#f59e0b' },
+        { id: 'on_hold', label: '保留', color: '#ef4444' },
+        { id: 'completed', label: '完了', color: '#10b981' }
+    ];
+    
+    // グループごとに表示
+    statusDisplayOrder.forEach(statusConfig => {
+        const groupNodes = nodeGroups[statusConfig.id];
+        if (groupNodes && groupNodes.length > 0) {
+            renderNodeStatusGroup(container, statusConfig, groupNodes);
+        }
+    });
+    
+    // すべてのグループが空の場合
+    const totalNodes = Object.values(nodeGroups).reduce((sum, group) => sum + group.length, 0);
+    if (totalNodes === 0) {
+        container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 40px; font-style: italic;">ノードがありません</div>';
+    }
+}
+
+/**
+ * ノードステータスグループを描画
+ * @param {HTMLElement} container - コンテナ要素
+ * @param {Object} statusConfig - ステータス設定
+ * @param {Array} groupNodes - グループ内のノード情報リスト
+ */
+function renderNodeStatusGroup(container, statusConfig, groupNodes) {
+    const groupContainer = document.createElement('div');
+    groupContainer.className = 'node-status-group';
+    groupContainer.setAttribute('data-status-group', statusConfig.id);
+    groupContainer.style.cssText = `
+        margin-bottom: 24px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        overflow: hidden;
+    `;
+    
+    // グループヘッダー
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'node-status-group-header';
+    groupHeader.style.cssText = `
+        background: ${statusConfig.color}08;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    `;
+    
+    // 未完了以外は初期状態で折りたたみ
+    const defaultCollapsed = statusConfig.id !== 'not_started';
+    const isCollapsed = nodeStatusGroupCollapsed?.[statusConfig.id] !== undefined 
+        ? nodeStatusGroupCollapsed[statusConfig.id] 
+        : defaultCollapsed;
+    
+    // ヘッダーコンテンツ
+    const headerContent = document.createElement('div');
+    headerContent.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    `;
+    
+    const expandIcon = document.createElement('span');
+    expandIcon.className = 'expand-icon';
+    expandIcon.style.cssText = `
+        font-size: 14px;
+        color: ${statusConfig.color};
+        transition: transform 0.2s ease;
+        transform: ${isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'};
+        user-select: none;
+    `;
+    expandIcon.textContent = '▼';
+    
+    const groupTitle = document.createElement('span');
+    groupTitle.style.cssText = `
+        font-weight: 600;
+        font-size: 16px;
+        color: ${statusConfig.color};
+    `;
+    groupTitle.textContent = statusConfig.label;
+    
+    const groupCount = document.createElement('span');
+    groupCount.style.cssText = `
+        background: ${statusConfig.color};
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        min-width: 20px;
+        text-align: center;
+    `;
+    groupCount.textContent = groupNodes.length;
+    
+    headerContent.appendChild(expandIcon);
+    headerContent.appendChild(groupTitle);
+    groupHeader.appendChild(headerContent);
+    groupHeader.appendChild(groupCount);
+    
+    // ホバーエフェクト
+    groupHeader.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = `${statusConfig.color}12`;
+    });
+    
+    groupHeader.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = `${statusConfig.color}08`;
+    });
+    
+    // クリックイベント（折りたたみ機能）
+    groupHeader.addEventListener('click', function() {
+        toggleNodeStatusGroup(statusConfig.id);
+    });
+    
+    // ノードリストコンテンツ
+    const groupContent = document.createElement('div');
+    groupContent.className = 'node-status-group-content';
+    groupContent.style.cssText = `
+        display: ${isCollapsed ? 'none' : 'block'};
+        transition: all 0.3s ease;
+    `;
+    
+    // 各ノードのタスクカードを追加
+    groupNodes.forEach(nodeInfo => {
+        createNodeTaskCard(nodeInfo.nodeIndex, groupContent, nodeInfo.depth, nodeInfo.isChild);
+    });
+    
+    groupContainer.appendChild(groupHeader);
+    groupContainer.appendChild(groupContent);
+    container.appendChild(groupContainer);
+}
+
+/**
+ * ノードステータスグループの折りたたみ切り替え
+ * @param {string} statusId - ステータスID
+ */
+function toggleNodeStatusGroup(statusId) {
+    const isCollapsed = nodeStatusGroupCollapsed[statusId] || false;
+    nodeStatusGroupCollapsed[statusId] = !isCollapsed;
+    
+    // UI更新
+    const groupElement = document.querySelector(`[data-status-group="${statusId}"]`);
+    if (groupElement) {
+        const header = groupElement.querySelector('.node-status-group-header');
+        const content = groupElement.querySelector('.node-status-group-content');
+        const expandIcon = header.querySelector('.expand-icon');
+        
+        if (nodeStatusGroupCollapsed[statusId]) {
+            content.style.display = 'none';
+            expandIcon.style.transform = 'rotate(-90deg)';
+        } else {
+            content.style.display = 'block';
+            expandIcon.style.transform = 'rotate(0deg)';
+        }
+    }
+    
+    // LocalStorage保存
+    saveToLocalStorage();
 }
 
 /**
@@ -504,7 +685,10 @@ function createNodeTaskCard(nodeIndex, container, depth = 0, isChild = false) {
         cursor: pointer;
     `;
     
-    const isCollapsed = nodeCardCollapsed[nodeIndex] || false;
+    // デフォルトは折りたたみ状態（true）、記録されていれば記録値を使用
+    const isCollapsed = nodeCardCollapsed[nodeIndex] !== undefined 
+        ? nodeCardCollapsed[nodeIndex] 
+        : true;
     const expandIcon = document.createElement('span');
     expandIcon.textContent = isCollapsed ? '▶' : '▼';
     expandIcon.className = 'expand-icon';

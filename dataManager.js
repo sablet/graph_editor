@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
     NODE_TASKS: 'graphEditor_nodeTasks',
     NODE_STATUSES: 'graphEditor_nodeStatuses',
     NODE_CARD_COLLAPSED: 'graphEditor_nodeCardCollapsed',
+    NODE_STATUS_GROUP_COLLAPSED: 'graphEditor_nodeStatusGroupCollapsed',
     FLAT_TASK_GROUP_COLLAPSED: 'graphEditor_flatTaskGroupCollapsed',
     DATA_VERSION: 'graphEditor_dataVersion',
     // プロジェクト管理
@@ -311,6 +312,7 @@ function saveToLocalStorageImmediate() {
             localStorage.setItem(STORAGE_KEYS.NODE_TASKS, JSON.stringify(nodeTasks));
             localStorage.setItem(STORAGE_KEYS.NODE_STATUSES, JSON.stringify(nodeStatuses));
             localStorage.setItem(STORAGE_KEYS.NODE_CARD_COLLAPSED, JSON.stringify(nodeCardCollapsed));
+            localStorage.setItem(STORAGE_KEYS.NODE_STATUS_GROUP_COLLAPSED, JSON.stringify(nodeStatusGroupCollapsed));
             localStorage.setItem(STORAGE_KEYS.PROJECT_CHAT_HISTORY, JSON.stringify(projectChatHistory));
             localStorage.setItem(STORAGE_KEYS.NODE_MEMOS, JSON.stringify(nodeMemos));
             localStorage.setItem(STORAGE_KEYS.FLAT_TASK_GROUP_COLLAPSED, JSON.stringify(flatTaskGroupCollapsed));
@@ -363,6 +365,7 @@ function loadFromLocalStorage() {
         const savedNodeTasks = localStorage.getItem(STORAGE_KEYS.NODE_TASKS);
         const savedNodeStatuses = localStorage.getItem(STORAGE_KEYS.NODE_STATUSES);
         const savedNodeCardCollapsed = localStorage.getItem(STORAGE_KEYS.NODE_CARD_COLLAPSED);
+        const savedNodeStatusGroupCollapsed = localStorage.getItem(STORAGE_KEYS.NODE_STATUS_GROUP_COLLAPSED);
         const savedProjectChatHistory = localStorage.getItem(STORAGE_KEYS.PROJECT_CHAT_HISTORY);
         const savedNodeMemos = localStorage.getItem(STORAGE_KEYS.NODE_MEMOS);
         const savedFlatTaskGroupCollapsed = localStorage.getItem(STORAGE_KEYS.FLAT_TASK_GROUP_COLLAPSED);
@@ -402,6 +405,12 @@ function loadFromLocalStorage() {
             nodeCardCollapsed = JSON.parse(savedNodeCardCollapsed);
         } else {
             nodeCardCollapsed = {};
+        }
+        
+        if (savedNodeStatusGroupCollapsed) {
+            nodeStatusGroupCollapsed = JSON.parse(savedNodeStatusGroupCollapsed);
+        } else {
+            nodeStatusGroupCollapsed = {};
         }
         
         

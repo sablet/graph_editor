@@ -63,6 +63,9 @@ let nodeStatuses = {};
 // ノードカード折りたたみ状態管理
 let nodeCardCollapsed = {};
 
+// ノードステータスグループ折りたたみ状態管理
+let nodeStatusGroupCollapsed = {};
+
 // プロジェクト管理データ
 let projects = [];
 let currentProjectId = null;
