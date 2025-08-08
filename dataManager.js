@@ -302,6 +302,11 @@ function saveToLocalStorageImmediate() {
         if (currentProjectId) {
             saveCurrentProjectData();
             saveProjectsToStorage();
+            
+            // クラウド同期（透明）
+            if (window.syncManager && window.syncManager.isOnlineMode) {
+                window.syncManager.scheduleUpSync();
+            }
             saveCurrentProjectIdToStorage();
         } else {
             // 旧形式のデータ保存（後方互換性のため）

@@ -188,7 +188,12 @@ function getCurrentProject() {
 }
 
 // 初期化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // 同期マネージャー初期化（透明）
+    if (window.syncManager) {
+        await window.syncManager.initialize();
+    }
+    
     // タブ状態の読み込み
     loadTabState();
     
@@ -243,6 +248,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // タブ状態の復元（フッタータブ初期化後に実行）
     restoreTabState();
+    
+    // 同期設定UIの初期化
+    setupSyncSettingsUI();
     
     // ウィンドウリサイズ時のタブ状態更新
     window.addEventListener('resize', function() {
@@ -377,6 +385,11 @@ function switchToProject(projectId) {
     
     // ノードインデックス関連の状態をリセット
     resetNodeSelection();
+    
+    // クラウド同期（透明）
+    if (window.syncManager && window.syncManager.isOnlineMode) {
+        window.syncManager.syncFromRemote();
+    }
     
     // UI更新
     updateProjectSelector();
@@ -1332,6 +1345,219 @@ function initFooterTabs() {
         });
     });
 }
+
+/**
+ * 同期設定UIの初期化
+ */
+function setupSyncSettingsUI() {
+    const syncSettingsBtn = document.getElementById('sync-settings-btn');
+    const syncSettingsModal = document.getElementById('sync-settings-modal');
+    const syncSettingsClose = document.getElementById('sync-settings-close');
+    const enableSyncBtn = document.getElementById('enable-sync-btn');
+    const forceSyncBtn = document.getElementById('force-sync-btn');
+    const disableSyncBtn = document.getElementById('disable-sync-btn');
+    const gistTokenInput = document.getElementById('gist-token');
+
+    if (!syncSettingsBtn || !syncSettingsModal) return;
+
+    // モーダル表示
+    syncSettingsBtn.addEventListener('click', () => {
+        syncSettingsModal.style.display = 'flex';
+        updateSyncStatus();
+        
+        // トークン入力フィールドをクリア
+        if (gistTokenInput) {
+            gistTokenInput.value = '';
+        }
+    });
+
+    // モーダル閉じる
+    syncSettingsClose?.addEventListener('click', () => {
+        syncSettingsModal.style.display = 'none';
+    });
+
+    // モーダル外クリックで閉じる
+    syncSettingsModal.addEventListener('click', (e) => {
+        if (e.target === syncSettingsModal) {
+            syncSettingsModal.style.display = 'none';
+        }
+    });
+
+    // 同期有効化
+    enableSyncBtn?.addEventListener('click', async () => {
+        const token = gistTokenInput?.value.trim();
+        
+        if (!token) {
+            alert('GitHub Personal Access Tokenを入力してください');
+            return;
+        }
+
+        if (!window.syncManager) {
+            alert('同期マネージャーが初期化されていません');
+            return;
+        }
+
+        // ボタンを無効化してローディング状態に
+        enableSyncBtn.disabled = true;
+        enableSyncBtn.textContent = '設定中...';
+
+        try {
+            const success = await window.syncManager.enableSync(token);
+            
+            if (success) {
+                updateSyncStatus();
+                gistTokenInput.value = '';
+                alert('クラウド同期が有効になりました！');
+            } else {
+                alert('トークンが無効です。確認してください。');
+            }
+        } catch (error) {
+            console.error('同期有効化エラー:', error);
+            alert('同期の有効化に失敗しました: ' + error.message);
+        } finally {
+            enableSyncBtn.disabled = false;
+            enableSyncBtn.textContent = '同期を有効にする';
+        }
+    });
+
+    // 手動同期
+    forceSyncBtn?.addEventListener('click', async () => {
+        if (!window.syncManager?.isOnlineMode) return;
+
+        forceSyncBtn.disabled = true;
+        forceSyncBtn.textContent = '同期中...';
+
+        try {
+            await window.syncManager.forceSync();
+            updateSyncStatus();
+        } catch (error) {
+            console.error('手動同期エラー:', error);
+            alert('同期に失敗しました: ' + error.message);
+        } finally {
+            forceSyncBtn.disabled = false;
+            forceSyncBtn.textContent = '手動同期';
+        }
+    });
+
+    // 同期無効化
+    disableSyncBtn?.addEventListener('click', () => {
+        if (confirm('クラウド同期を無効にしますか？\n（ローカルデータは保持されます）')) {
+            window.syncManager?.disableSync();
+            updateSyncStatus();
+        }
+    });
+
+    // Enterキーでトークン入力を実行
+    gistTokenInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            enableSyncBtn?.click();
+        }
+    });
+}
+
+/**
+ * 同期状態の表示更新
+ */
+function updateSyncStatus() {
+    const syncStatusDisplay = document.getElementById('sync-status-display');
+    const syncSetupForm = document.getElementById('sync-setup-form');
+    const syncControls = document.getElementById('sync-controls');
+    
+    if (!syncStatusDisplay || !window.syncManager) return;
+
+    if (!window.syncManager.isOnlineMode) {
+        // オフラインモード
+        syncStatusDisplay.innerHTML = `
+            <div class="sync-status offline">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 20px;">📱</span>
+                    <span style="font-weight: 600; color: #374151;">ローカルモード</span>
+                </div>
+                <div style="font-size: 13px; color: #6b7280;">クラウド同期は無効です</div>
+            </div>
+        `;
+        
+        if (syncSetupForm) syncSetupForm.style.display = 'block';
+        if (syncControls) syncControls.style.display = 'none';
+        
+    } else {
+        // オンラインモード
+        const lastSync = window.syncManager.lastSyncTime 
+            ? new Date(window.syncManager.lastSyncTime).toLocaleTimeString('ja-JP')
+            : '未同期';
+        
+        syncStatusDisplay.innerHTML = `
+            <div class="sync-status online">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 20px;">☁️</span>
+                    <span style="font-weight: 600; color: #059669;">クラウド同期有効</span>
+                </div>
+                <div style="font-size: 13px; color: #6b7280;">最終同期: ${lastSync}</div>
+                ${window.syncManager.syncInProgress ? '<div style="font-size: 13px; color: #3b82f6;">同期中...</div>' : ''}
+            </div>
+        `;
+        
+        if (syncSetupForm) syncSetupForm.style.display = 'none';
+        if (syncControls) syncControls.style.display = 'block';
+    }
+}
+
+// 簡易トースト通知（同期マネージャー用）
+function showToast(message, type = 'info') {
+    // 既存のトーストを削除
+    const existingToast = document.getElementById('sync-toast');
+    if (existingToast) {
+        existingToast.remove();
+    }
+
+    // トースト要素を作成
+    const toast = document.createElement('div');
+    toast.id = 'sync-toast';
+    
+    const bgColor = {
+        'success': '#059669',
+        'error': '#dc2626', 
+        'warning': '#d97706',
+        'info': '#3b82f6'
+    }[type] || '#3b82f6';
+
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${bgColor};
+        color: white;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        z-index: 10000;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    `;
+
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // アニメーション表示
+    setTimeout(() => {
+        toast.style.transform = 'translateX(0)';
+    }, 100);
+
+    // 自動削除
+    setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 300);
+    }, 3000);
+}
+
+// グローバル関数として公開
+window.updateSyncStatus = updateSyncStatus;
+window.showToast = showToast;
 
 // 右パネル用フッタータブ切り替え機能
 function initRightFooterTabs() {
