@@ -339,7 +339,7 @@ class SyncManager {
                 nodes: this.mergeByTimestamp(local.data?.nodes || [], remote.data?.nodes || [], 'id'),
                 relations: this.mergeByTimestamp(local.data?.relations || [], remote.data?.relations || [], 'id'),
                 nodeHierarchy: this.mergeArrays(local.data?.nodeHierarchy || [], remote.data?.nodeHierarchy || []),
-                nodeTasks: this.mergeNestedObjects(local.data?.nodeTasks || {}, remote.data?.nodeTasks || {}),
+                nodeTasks: this.mergeNodeTasks(local.data?.nodeTasks || {}, remote.data?.nodeTasks || {}),
                 nodeStatuses: this.mergeNestedObjects(local.data?.nodeStatuses || {}, remote.data?.nodeStatuses || {}),
                 
                 // UI状態：ローカル優先（デバイス固有）
@@ -421,6 +421,70 @@ class SyncManager {
         });
         
         return result;
+    }
+
+    /**
+     * ノードタスクの詳細マージ（タスクレベルでのタイムスタンプベース）
+     */
+    mergeNodeTasks(localNodeTasks, remoteNodeTasks) {
+        const result = { ...localNodeTasks };
+        
+        // 全てのノードインデックスを取得
+        const allNodeIndices = new Set([
+            ...Object.keys(localNodeTasks),
+            ...Object.keys(remoteNodeTasks)
+        ]);
+        
+        allNodeIndices.forEach(nodeIndex => {
+            const localTasks = localNodeTasks[nodeIndex] || [];
+            const remoteTasks = remoteNodeTasks[nodeIndex] || [];
+            
+            // タスクレベルでタイムスタンプベースマージ
+            result[nodeIndex] = this.mergeTaskArrays(localTasks, remoteTasks);
+        });
+        
+        return result;
+    }
+
+    /**
+     * タスク配列のタイムスタンプベースマージ
+     */
+    mergeTaskArrays(localTasks, remoteTasks) {
+        const merged = new Map();
+        
+        // ローカルタスクを追加
+        localTasks.forEach(task => {
+            if (task.id) {
+                merged.set(task.id, {
+                    ...task,
+                    _source: 'local'
+                });
+            }
+        });
+        
+        // リモートタスクで上書き（より新しい場合）
+        remoteTasks.forEach(task => {
+            if (task.id) {
+                const existing = merged.get(task.id);
+                const taskTimestamp = task.updatedAt || task.createdAt || '1970-01-01';
+                const existingTimestamp = existing ? 
+                    (existing.updatedAt || existing.createdAt || '1970-01-01') : 
+                    '1970-01-01';
+                
+                if (!existing || taskTimestamp > existingTimestamp) {
+                    merged.set(task.id, {
+                        ...task,
+                        _source: 'remote'
+                    });
+                }
+            }
+        });
+        
+        // _sourceフィールドを除去してタスク配列を返す
+        return Array.from(merged.values()).map(task => {
+            const { _source, ...cleanTask } = task;
+            return cleanTask;
+        });
     }
 
     /**

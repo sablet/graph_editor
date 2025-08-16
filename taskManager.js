@@ -23,10 +23,14 @@ function addTaskToNode(nodeIndex, taskText) {
     }
     
     // 新規タスク作成
+    const now = new Date().toISOString();
     const newTask = {
         id: "task_" + Date.now(),
         text: taskText.trim(),
-        completed: false
+        completed: false,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
     };
     
     // 配列に追加
@@ -43,12 +47,13 @@ function addTaskToNode(nodeIndex, taskText) {
 }
 
 /**
- * ノードのタスク一覧を取得
+ * ノードのタスク一覧を取得（削除済みタスクは除外）
  * @param {number} nodeIndex - ノードのインデックス
  * @returns {Array} タスクの配列
  */
 function getNodeTasks(nodeIndex) {
-    return nodeTasks[nodeIndex] || [];
+    const tasks = nodeTasks[nodeIndex] || [];
+    return tasks.filter(task => !task.deleted);
 }
 
 /**
@@ -63,7 +68,7 @@ function getTaskById(nodeIndex, taskId) {
 }
 
 /**
- * 全タスクの統計情報を取得
+ * 全タスクの統計情報を取得（削除済みタスクは除外）
  * @returns {Object} 総タスク数、完了数、達成率
  */
 function getAllTaskStats() {
@@ -71,8 +76,9 @@ function getAllTaskStats() {
     let completedTasks = 0;
     
     Object.values(nodeTasks).forEach(tasks => {
-        totalTasks += tasks.length;
-        completedTasks += tasks.filter(t => t.completed).length;
+        const activeTasks = tasks.filter(t => !t.deleted);
+        totalTasks += activeTasks.length;
+        completedTasks += activeTasks.filter(t => t.completed).length;
     });
     
     return {
@@ -95,6 +101,7 @@ function updateTaskText(nodeIndex, taskId, newText) {
     
     if (task && newText.trim() !== '') {
         task.text = newText.trim();
+        task.updatedAt = new Date().toISOString();
         renderTaskList(nodeIndex);
         updateOverallProgress(); // 全体進捗も更新
         
@@ -118,6 +125,7 @@ function toggleTaskCompletion(nodeIndex, taskId) {
     
     if (task) {
         task.completed = !task.completed;
+        task.updatedAt = new Date().toISOString();
         renderTaskList(nodeIndex);
         updateOverallProgress(); // 全体進捗も更新
         
@@ -130,7 +138,7 @@ function toggleTaskCompletion(nodeIndex, taskId) {
 }
 
 /**
- * タスクを削除
+ * タスクを削除（論理削除）
  * @param {number} nodeIndex - ノードのインデックス
  * @param {string} taskId - タスクID
  * @returns {boolean} 削除成功時true
@@ -140,38 +148,53 @@ function deleteTask(nodeIndex, taskId) {
         return false;
     }
     
-    const originalLength = nodeTasks[nodeIndex].length;
-    nodeTasks[nodeIndex] = nodeTasks[nodeIndex].filter(task => task.id !== taskId);
+    const task = nodeTasks[nodeIndex].find(t => t.id === taskId);
     
-    const deleted = originalLength > nodeTasks[nodeIndex].length;
-    
-    if (deleted) {
+    if (task) {
+        // 論理削除：削除マーカーを設定
+        task.deleted = true;
+        task.deletedAt = new Date().toISOString();
+        task.updatedAt = new Date().toISOString();
+        
         renderTaskList(nodeIndex);
         updateOverallProgress(); // 全体進捗も更新
         
         // LocalStorageに保存
         saveToLocalStorage();
+        return true;
     }
     
-    return deleted;
+    return false;
 }
 
 /**
- * ノードの全タスクを削除
+ * ノードの全タスクを削除（論理削除）
  * @param {number} nodeIndex - ノードのインデックス
  * @returns {number} 削除されたタスク数
  */
 function deleteAllNodeTasks(nodeIndex) {
-    const taskCount = nodeTasks[nodeIndex] ? nodeTasks[nodeIndex].length : 0;
+    if (!nodeTasks[nodeIndex]) {
+        return 0;
+    }
     
-    delete nodeTasks[nodeIndex];
+    const activeTasks = nodeTasks[nodeIndex].filter(t => !t.deleted);
+    const deleteCount = activeTasks.length;
+    const now = new Date().toISOString();
+    
+    // 全てのアクティブタスクに削除マーカーを設定
+    activeTasks.forEach(task => {
+        task.deleted = true;
+        task.deletedAt = now;
+        task.updatedAt = now;
+    });
+    
     renderTaskList(nodeIndex);
     updateOverallProgress(); // 全体進捗も更新
     
     // LocalStorageに保存
     saveToLocalStorage();
     
-    return taskCount;
+    return deleteCount;
 }
 
 // ===== タスク管理UI関連機能 =====
