@@ -450,6 +450,15 @@ function onNodeTabProjectSwitched() {
 // ===== 初期化とイベント処理 =====
 
 /**
+ * プロジェクトチャット機能の初期化
+ */
+function initializeProjectChatFeatures() {
+    // 初期化時にプロジェクトチャット履歴とオプションを表示
+    updateEmbeddedTaskAssociationOptions();
+    renderEmbeddedProjectChatHistory();
+}
+
+/**
  * ノードタブ機能の初期化
  */
 function initializeNodeTabFeatures() {

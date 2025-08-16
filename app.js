@@ -174,6 +174,14 @@ function updateAllUI() {
         renderAllNodeTasks();
     }
     
+    // プロジェクトチャット関連のUI更新
+    if (typeof updateEmbeddedTaskAssociationOptions === 'function') {
+        updateEmbeddedTaskAssociationOptions();
+    }
+    if (typeof renderEmbeddedProjectChatHistory === 'function') {
+        renderEmbeddedProjectChatHistory();
+    }
+    
     updateOverallProgress();
     generateMermaidCode();
 }
