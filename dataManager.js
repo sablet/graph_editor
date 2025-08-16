@@ -30,7 +30,7 @@ const STORAGE_KEYS = {
 };
 
 // データバージョン
-const CURRENT_DATA_VERSION = '1.0.0';
+const CURRENT_DATA_VERSION = '2.0.0'; // タスクタイムスタンプ・削除マーカー対応
 
 // デフォルトのフラットタスクグループ折りたたみ状態
 const DEFAULT_FLAT_TASK_GROUP_COLLAPSED = {
@@ -302,6 +302,11 @@ function saveToLocalStorageImmediate() {
         if (currentProjectId) {
             saveCurrentProjectData();
             saveProjectsToStorage();
+            
+            // クラウド同期（透明）
+            if (window.syncManager && window.syncManager.isOnlineMode) {
+                window.syncManager.scheduleUpSync();
+            }
             saveCurrentProjectIdToStorage();
         } else {
             // 旧形式のデータ保存（後方互換性のため）
@@ -350,12 +355,19 @@ function loadFromLocalStorage() {
     }
     
     try {
-        // データバージョンチェック
+        // データバージョンチェックとマイグレーション
         const savedVersion = localStorage.getItem(STORAGE_KEYS.DATA_VERSION);
         if (savedVersion !== CURRENT_DATA_VERSION) {
-            console.log('Data version mismatch or no saved data, using initial data');
-            initializeWithDefaultData();
-            return false;
+            console.log(`Data migration needed: ${savedVersion} -> ${CURRENT_DATA_VERSION}`);
+            if (savedVersion === '1.0.0') {
+                // v1.0.0からv2.0.0へのマイグレーション
+                migrateFromV1ToV2();
+            } else {
+                // 未知のバージョンまたは初回起動
+                console.log('Unknown version or first run, using initial data');
+                initializeWithDefaultData();
+                return false;
+            }
         }
         
         // 各データを個別に読み込み
@@ -1007,5 +1019,68 @@ function cleanupMemosAfterNodeDeletion(deletedNodeIndex) {
     if (nodeMemos[deletedNodeIndex]) {
         delete nodeMemos[deletedNodeIndex];
         saveToLocalStorage();
+    }
+}
+
+// ===== データマイグレーション機能 =====
+
+/**
+ * v1.0.0からv2.0.0へのマイグレーション
+ * タスクデータにタイムスタンプとdeleted状態を追加
+ */
+function migrateFromV1ToV2() {
+    console.log('Starting migration from v1.0.0 to v2.0.0...');
+    
+    try {
+        // 既存のタスクデータを読み込み
+        const savedNodeTasks = localStorage.getItem(STORAGE_KEYS.NODE_TASKS);
+        if (savedNodeTasks) {
+            const oldNodeTasks = JSON.parse(savedNodeTasks);
+            const migratedNodeTasks = {};
+            
+            Object.keys(oldNodeTasks).forEach(nodeIndex => {
+                const tasks = oldNodeTasks[nodeIndex];
+                if (Array.isArray(tasks)) {
+                    migratedNodeTasks[nodeIndex] = tasks.map(task => {
+                        // v1.0.0のタスクには createdAt, updatedAt, deleted がない
+                        if (!task.createdAt || !task.updatedAt || task.deleted === undefined) {
+                            const now = new Date().toISOString();
+                            return {
+                                ...task,
+                                createdAt: task.createdAt || now,
+                                updatedAt: task.updatedAt || now,
+                                deleted: task.deleted !== undefined ? task.deleted : false
+                            };
+                        }
+                        return task; // 既にマイグレーション済み
+                    });
+                } else {
+                    migratedNodeTasks[nodeIndex] = [];
+                }
+            });
+            
+            // マイグレーション済みデータを保存
+            localStorage.setItem(STORAGE_KEYS.NODE_TASKS, JSON.stringify(migratedNodeTasks));
+            console.log(`Migrated ${Object.keys(migratedNodeTasks).length} node task collections`);
+        }
+        
+        // プロジェクトデータの初期化（v1.0.0にはプロジェクト管理がない）
+        if (!localStorage.getItem(STORAGE_KEYS.PROJECTS)) {
+            console.log('Initializing project management for v2.0.0...');
+            const defaultProject = createProject('マイグレーション済みプロジェクト');
+            switchToProject(defaultProject.id);
+        }
+        
+        // データバージョンを更新
+        localStorage.setItem(STORAGE_KEYS.DATA_VERSION, CURRENT_DATA_VERSION);
+        
+        console.log('Migration from v1.0.0 to v2.0.0 completed successfully');
+        return true;
+        
+    } catch (error) {
+        console.error('Migration failed:', error);
+        // マイグレーションに失敗した場合は初期データで開始
+        initializeWithDefaultData();
+        return false;
     }
 }
