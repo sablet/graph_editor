@@ -291,9 +291,9 @@ function initializeProjectManagement() {
     document.getElementById('create-project-btn').addEventListener('click', createNewProject);
     document.getElementById('update-project-btn').addEventListener('click', updateCurrentProject);
     document.getElementById('delete-project-btn').addEventListener('click', deleteCurrentProject);
-    document.getElementById('project-selector').addEventListener('change', function(e) {
+    document.getElementById('project-selector').addEventListener('change', async function(e) {
         if (e.target.value) {
-            switchToProject(e.target.value);
+            await switchToProject(e.target.value);
         }
     });
 }
@@ -322,12 +322,12 @@ function updateProjectUI() {
     updateOverallProgress();
 }
 
-function createNewProject() {
+async function createNewProject() {
     const name = prompt('新しいプロジェクト名を入力してください:', '');
     if (name && name.trim()) {
         const description = prompt('プロジェクトの説明を入力してください（任意）:', '');
         const newProject = createProject(name.trim(), description?.trim() || '');
-        switchToProject(newProject.id);
+        await switchToProject(newProject.id);
         updateProjectUI();
         alert(`プロジェクト「${name.trim()}」が作成されました。`);
     }
@@ -378,7 +378,7 @@ function deleteCurrentProject() {
     }
 }
 
-function switchToProject(projectId) {
+async function switchToProject(projectId) {
     const project = projects.find(p => p.id === projectId);
     if (!project) return false;
     
@@ -387,17 +387,19 @@ function switchToProject(projectId) {
         saveCurrentProjectData();
     }
     
-    // 新しいプロジェクトのデータを読み込み
+    // プロジェクトIDを設定
     currentProjectId = projectId;
-    loadProjectData(project);
     
     // ノードインデックス関連の状態をリセット
     resetNodeSelection();
     
     // クラウド同期（透明）
     if (window.syncManager && window.syncManager.isOnlineMode) {
-        window.syncManager.syncFromRemote();
+        await window.syncManager.syncFromRemote();
     }
+    
+    // 同期後に最新のプロジェクトデータを読み込み
+    loadProjectData(project);
     
     // UI更新
     updateProjectSelector();
@@ -1366,7 +1368,7 @@ function setupSyncSettingsUI() {
     const disableSyncBtn = document.getElementById('disable-sync-btn');
     const gistTokenInput = document.getElementById('gist-token');
 
-    if (!syncSettingsBtn || !syncSettingsModal) return;
+    if (!syncSettingsBtn || !syncSettingsModal || !syncSettingsClose || !enableSyncBtn || !forceSyncBtn || !disableSyncBtn || !gistTokenInput) return;
 
     // モーダル表示
     syncSettingsBtn.addEventListener('click', () => {
