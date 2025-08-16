@@ -40,6 +40,14 @@ function addTaskToNode(nodeIndex, taskText) {
     renderTaskList(nodeIndex);
     updateOverallProgress(); // 全体進捗も更新
     
+    // 全ノード表示のタスクリストも更新
+    updateNodeTasksOnly(nodeIndex);
+    
+    // フラットタスクリストも更新
+    if (typeof renderFlatTaskList === 'function') {
+        renderFlatTaskList();
+    }
+    
     // LocalStorageに保存
     saveToLocalStorage();
     
@@ -105,6 +113,14 @@ function updateTaskText(nodeIndex, taskId, newText) {
         renderTaskList(nodeIndex);
         updateOverallProgress(); // 全体進捗も更新
         
+        // 全ノード表示のタスクリストも更新
+        updateNodeTasksOnly(nodeIndex);
+        
+        // フラットタスクリストも更新
+        if (typeof renderFlatTaskList === 'function') {
+            renderFlatTaskList();
+        }
+        
         // LocalStorageに保存
         saveToLocalStorage();
         return true;
@@ -128,6 +144,14 @@ function toggleTaskCompletion(nodeIndex, taskId) {
         task.updatedAt = new Date().toISOString();
         renderTaskList(nodeIndex);
         updateOverallProgress(); // 全体進捗も更新
+        
+        // 全ノード表示のタスクリストも更新
+        updateNodeTasksOnly(nodeIndex);
+        
+        // フラットタスクリストも更新
+        if (typeof renderFlatTaskList === 'function') {
+            renderFlatTaskList();
+        }
         
         // LocalStorageに保存
         saveToLocalStorage();
@@ -158,6 +182,14 @@ function deleteTask(nodeIndex, taskId) {
         
         renderTaskList(nodeIndex);
         updateOverallProgress(); // 全体進捗も更新
+        
+        // 全ノード表示のタスクリストも更新
+        updateNodeTasksOnly(nodeIndex);
+        
+        // フラットタスクリストも更新
+        if (typeof renderFlatTaskList === 'function') {
+            renderFlatTaskList();
+        }
         
         // LocalStorageに保存
         saveToLocalStorage();
